@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import React, { useCallback, useState } from 'react'
 import {
   MenuItemLink,
   useDataProvider,
@@ -15,6 +15,21 @@ import SubMenu from './SubMenu'
 import { canChangeTracks } from '../common'
 import { DraggableTypes } from '../consts'
 import config from '../config'
+import ExpandMore from '@material-ui/icons/ExpandMore'
+import ArrowRightOutlined from '@material-ui/icons/ArrowRightOutlined'
+import Collapse from '@material-ui/core/Collapse'
+import { makeStyles } from '@material-ui/core/styles'
+
+const useStyles = makeStyles((theme) => ({
+  folderHeader: {
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    '& .MuiTypography-root': {
+      marginLeft: theme.spacing(1),
+    },
+  },
+}))
 
 const PlaylistMenuItemLink = ({ pls, sidebarIsOpen }) => {
   const dataProvider = useDataProvider()
@@ -49,6 +64,12 @@ const PlaylistMenuItemLink = ({ pls, sidebarIsOpen }) => {
   )
 }
 
+const parseFolderAndName = (fullName) => {
+  const parts = fullName.split('>')
+  if (parts.length === 1) return { folder: 'Unsorted', name: parts[0].trim() }
+  return { folder: parts[0].trim(), name: parts[1].trim() }
+}
+
 const PlaylistsSubMenu = ({ state, setState, sidebarIsOpen, dense }) => {
   const history = useHistory()
   const { data, loaded } = useQueryWithStore({
@@ -75,6 +96,59 @@ const PlaylistsSubMenu = ({ state, setState, sidebarIsOpen, dense }) => {
     />
   )
 
+  const groupPlaylistsByFolder = (playlists) => {
+    const groups = new Map()
+    playlists.forEach((pls) => {
+      const { folder, name } = parseFolderAndName(pls.name)
+      if (!groups.has(folder)) {
+        groups.set(folder, [])
+      }
+      groups.get(folder).push({ ...pls, displayName: name })
+    })
+    return groups
+  }
+
+  const [openFolders, setOpenFolders] = useState({})
+  const classes = useStyles()
+
+  const toggleFolder = (folder) => {
+    setOpenFolders((prev) => ({
+      ...prev,
+      [folder]: !prev[folder],
+    }))
+  }
+
+  const renderPlaylistGroup = (playlists, folder) => {
+    if (!folder) {
+      return playlists.map((pls) => (
+        <PlaylistMenuItemLink
+          pls={{ ...pls, name: pls.displayName }}
+          sidebarIsOpen={sidebarIsOpen}
+          key={pls.id}
+        />
+      ))
+    }
+
+    return (
+      <React.Fragment key={folder}>
+        <PlaylistFolderHeader
+          title={folder}
+          isOpen={openFolders[folder]}
+          onClick={() => toggleFolder(folder)}
+        />
+        <Collapse in={openFolders[folder]} timeout="auto">
+          {playlists.map((pls) => (
+            <PlaylistMenuItemLink
+              pls={{ ...pls, name: pls.displayName }}
+              sidebarIsOpen={sidebarIsOpen}
+              key={pls.id}
+            />
+          ))}
+        </Collapse>
+      </React.Fragment>
+    )
+  }
+
   const userId = localStorage.getItem('userId')
   const myPlaylists = []
   const sharedPlaylists = []
@@ -90,6 +164,9 @@ const PlaylistsSubMenu = ({ state, setState, sidebarIsOpen, dense }) => {
       }
     })
   }
+
+  const groupedMyPlaylists = groupPlaylistsByFolder(myPlaylists)
+  const groupedSharedPlaylists = groupPlaylistsByFolder(sharedPlaylists)
 
   const onPlaylistConfig = useCallback(
     () => history.push('/playlist'),
@@ -108,7 +185,9 @@ const PlaylistsSubMenu = ({ state, setState, sidebarIsOpen, dense }) => {
         actionIcon={<BiCog />}
         onAction={onPlaylistConfig}
       >
-        {myPlaylists.map(renderPlaylistMenuItemLink)}
+        {Array.from(groupedMyPlaylists.entries()).map(([folder, playlists]) =>
+          renderPlaylistGroup(playlists, folder),
+        )}
       </SubMenu>
       {sharedPlaylists?.length > 0 && (
         <SubMenu
@@ -119,10 +198,28 @@ const PlaylistsSubMenu = ({ state, setState, sidebarIsOpen, dense }) => {
           icon={<QueueMusicOutlinedIcon />}
           dense={dense}
         >
-          {sharedPlaylists.map(renderPlaylistMenuItemLink)}
+          {Array.from(groupedSharedPlaylists.entries()).map(
+            ([folder, playlists]) => renderPlaylistGroup(playlists, folder),
+          )}
         </SubMenu>
       )}
     </>
+  )
+}
+
+const PlaylistFolderHeader = ({ title, isOpen, onClick }) => {
+  const classes = useStyles()
+  return (
+    <div className={classes.folderHeader} onClick={onClick}>
+      {isOpen ? (
+        <ExpandMore fontSize="small" color="primary" />
+      ) : (
+        <ArrowRightOutlined fontSize="small" color="primary" />
+      )}
+      <Typography color="primary" noWrap>
+        {title}
+      </Typography>
+    </div>
   )
 }
 
