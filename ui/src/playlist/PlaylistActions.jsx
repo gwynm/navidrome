@@ -7,6 +7,7 @@ import {
   useTranslate,
   useDataProvider,
   useNotify,
+  useRedirect,
 } from 'react-admin'
 import { useMediaQuery, makeStyles } from '@material-ui/core'
 import PlayArrowIcon from '@material-ui/icons/PlayArrow'
@@ -15,6 +16,7 @@ import CloudDownloadOutlinedIcon from '@material-ui/icons/CloudDownloadOutlined'
 import { RiPlayListAddFill, RiPlayList2Fill } from 'react-icons/ri'
 import QueueMusicIcon from '@material-ui/icons/QueueMusic'
 import ShareIcon from '@material-ui/icons/Share'
+import EditIcon from '@material-ui/icons/Edit'
 import { httpClient } from '../dataProvider'
 import {
   playNext,
@@ -41,6 +43,7 @@ const PlaylistActions = ({ className, ids, data, record, ...rest }) => {
   const classes = useStyles()
   const dataProvider = useDataProvider()
   const notify = useNotify()
+  const redirect = useRedirect()
   const isDesktop = useMediaQuery((theme) => theme.breakpoints.up('md'))
   const isNotSmall = useMediaQuery((theme) => theme.breakpoints.up('sm'))
 
@@ -111,6 +114,10 @@ const PlaylistActions = ({ className, ids, data, record, ...rest }) => {
     [record],
   )
 
+  const handleEdit = () => {
+    redirect('edit', 'playlist', record.id)
+  }
+
   return (
     <TopToolbar className={className} {...sanitizeListRestProps(rest)}>
       <div className={classes.toolbar}>
@@ -160,6 +167,9 @@ const PlaylistActions = ({ className, ids, data, record, ...rest }) => {
             label={translate('resources.playlist.actions.export')}
           >
             <QueueMusicIcon />
+          </Button>
+          <Button onClick={handleEdit} label={translate('ra.action.edit')}>
+            <EditIcon />
           </Button>
         </div>
         <div>{isNotSmall && <ToggleFieldsMenu resource="playlistTrack" />}</div>
