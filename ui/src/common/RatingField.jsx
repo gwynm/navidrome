@@ -46,7 +46,7 @@ export const RatingField = ({
   return (
     <span onClick={(e) => stopPropagation(e)}>
       <Rating
-        name={record.id}
+        name={record.mediaFileId || record.id}
         className={clsx(
           className,
           classes.rating,

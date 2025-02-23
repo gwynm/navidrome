@@ -1,13 +1,13 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { useDataProvider, useNotify } from 'react-admin'
+import { useDataProvider, useNotify, useRefresh } from 'react-admin'
 import subsonic from '../subsonic'
 
 export const useRating = (resource, record) => {
   const [loading, setLoading] = useState(false)
   const notify = useNotify()
+  const refresh = useRefresh()
   const dataProvider = useDataProvider()
   const mountedRef = useRef(false)
-  const rating = record.rating
 
   useEffect(() => {
     mountedRef.current = true
@@ -17,11 +17,14 @@ export const useRating = (resource, record) => {
   }, [])
 
   const refreshRating = useCallback(() => {
+    const actualResource = resource === 'playlistTrack' ? 'song' : resource
+    const id = resource === 'playlistTrack' ? record.mediaFileId : record.id
     dataProvider
-      .getOne(resource, { id: record.id })
+      .getOne(actualResource, { id })
       .then(() => {
         if (mountedRef.current) {
           setLoading(false)
+          if (resource === 'playlistTrack') refresh() // brute force recovery by refreshing all. Would be better to figure out why refreshing the song doesn't seem to do it
         }
       })
       .catch((e) => {
@@ -45,5 +48,5 @@ export const useRating = (resource, record) => {
       })
   }
 
-  return [rate, rating, loading]
+  return [rate, record.rating, loading]
 }
