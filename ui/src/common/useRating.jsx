@@ -31,7 +31,7 @@ export const useRating = (resource, record) => {
         // eslint-disable-next-line no-console
         console.log('Error encountered: ' + e)
       })
-  }, [dataProvider, record, resource])
+  }, [dataProvider, record, resource, refresh])
 
   const rate = (val, id) => {
     setLoading(true)
