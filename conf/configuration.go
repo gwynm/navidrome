@@ -557,7 +557,7 @@ func setViperDefaults() {
 	viper.SetDefault("scanner.purgemissing", consts.PurgeMissingNever)
 	viper.SetDefault("subsonic.appendsubtitle", true)
 	viper.SetDefault("subsonic.artistparticipations", false)
-	viper.SetDefault("subsonic.defaultreportrealpath", false)
+	viper.SetDefault("subsonic.defaultreportrealpath", true)
 	viper.SetDefault("subsonic.legacyclients", "DSub")
 	viper.SetDefault("agents", "lastfm,spotify,deezer")
 	viper.SetDefault("lastfm.enabled", true)
