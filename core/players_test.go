@@ -36,6 +36,7 @@ var _ = Describe("Players", func() {
 			Expect(p.Client).To(Equal("client"))
 			Expect(p.UserId).To(Equal("userid"))
 			Expect(p.UserAgent).To(Equal("chrome"))
+			Expect(p.ReportRealPath).To(BeTrue())
 			Expect(repo.lastSaved).To(Equal(p))
 			Expect(trc).To(BeNil())
 		})
@@ -45,6 +46,7 @@ var _ = Describe("Players", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(p.ID).ToNot(BeEmpty())
 			Expect(p.LastSeen).To(BeTemporally(">=", beforeRegister))
+			Expect(p.ReportRealPath).To(BeTrue())
 			Expect(repo.lastSaved).To(Equal(p))
 			Expect(trc).To(BeNil())
 		})
@@ -58,6 +60,7 @@ var _ = Describe("Players", func() {
 			Expect(p.ID).ToNot(Equal("123"))
 			Expect(p.LastSeen).To(BeTemporally(">=", beforeRegister))
 			Expect(p.Client).To(Equal("client2222"))
+			Expect(p.ReportRealPath).To(BeTrue())
 			Expect(trc).To(BeNil())
 		})
 
