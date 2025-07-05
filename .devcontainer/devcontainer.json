@@ -17,6 +17,11 @@
 		"seccomp=unconfined",
 		"--volume=${localWorkspaceFolder}:/workspaces/${localWorkspaceFolderBasename}:Z"
 	],
+	// Mount host's gitconfig so you can use git inside the container (necessary because we need to run precommit hooks)
+	// without having to enter name and email every time.
+	"mounts": [
+		"source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached"
+	],
 	// Set *default* container specific settings.json values on container create.
 	"customizations": {
 		"vscode": {
