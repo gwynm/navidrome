@@ -86,3 +86,37 @@ Here are some useful direct links:
     <img height="550" src="https://raw.githubusercontent.com/navidrome/navidrome/master/.github/screenshots/ss-mobile-album-view.png">
     <img width="550" src="https://raw.githubusercontent.com/navidrome/navidrome/master/.github/screenshots/ss-desktop-player.png">
 </p>
+
+## Development quickstart
+
+* `git clone`
+* populate `data/` with some music files to use for dev/testing
+* `code .`
+* Ctrl+Cmd+P, `Reopen in devcontainer`
+* In the container terminal, `make dev`
+* Open http://localhost:4533 - this is a local server, with hot reloading
+* Login with 'admin:password'
+* Make your changes
+* Test with `make pre-push` 
+* `git push` from inside the container (because it uses git hooks to run the tests). VSCode/Cursor do SSH agent forwarding by default so this should work. If it doesn't, see if you need to do `ssh-add <keyfile>` on your host system.
+* Deployment: Build and push a docker image:
+  * `aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws`
+  * `DOCKER_TAG=gwynm/navidrome:develop IMAGE_PLATFORMS=linux/amd64 make docker-image`
+  * `docker push gwynm/navidrome:develop`
+  * On your server eg, `docker compose up -d navidrome`
+
+## Workflow
+
+`master` tracks `upstream/master`
+`gm-hax` is the main branch for my fork
+
+`git fetch upstream && git checkout master && git reset --hard upstream/master`
+`git checkout gm-hax && git rebase master`
+`git push origin master --force && git push origin gm-hax --force`
+
+
+## Tests
+
+`cd /workspaces/navidrome/ui && npm run test`
+`cd /workspaces/navidrome && unset ND_MUSICFOLDER ND_DATAFOLDER && GOTOOLCHAIN=auto make test`
+
