@@ -11,12 +11,13 @@ import {
   NullableBooleanInput,
   usePermissions,
 } from 'react-admin'
-import { useMediaQuery } from '@material-ui/core'
+import { useMediaQuery, withWidth } from '@material-ui/core'
 import FavoriteIcon from '@material-ui/icons/Favorite'
 import {
   DateField,
   DurationField,
   List,
+  Pagination,
   SongContextMenu,
   SongDatagrid,
   SongInfo,
@@ -25,6 +26,7 @@ import {
   SongSimpleList,
   RatingField,
   useResourceRefresh,
+  useSongsPerPage,
   ArtistLinkField,
   PathField,
 } from '../common'
@@ -131,10 +133,12 @@ const SongFilter = (props) => {
 }
 
 const SongList = (props) => {
+  const { width } = props
   const classes = useStyles()
   const dispatch = useDispatch()
   const isXsmall = useMediaQuery((theme) => theme.breakpoints.down('xs'))
   const isDesktop = useMediaQuery((theme) => theme.breakpoints.up('md'))
+  const [perPage, perPageOptions] = useSongsPerPage(width)
   useResourceRefresh('song')
 
   const handleRowClick = (id, basePath, record) => {
@@ -213,7 +217,8 @@ const SongList = (props) => {
         bulkActionButtons={<SongBulkActions />}
         actions={<SongListActions />}
         filters={<SongFilter />}
-        perPage={isXsmall ? 50 : 15}
+        perPage={perPage}
+        pagination={<Pagination rowsPerPageOptions={perPageOptions} />}
       >
         {isXsmall ? (
           <SongSimpleList />
@@ -247,4 +252,6 @@ const SongList = (props) => {
   )
 }
 
-export default SongList
+const SongListWithWidth = withWidth()(SongList)
+
+export default SongListWithWidth
