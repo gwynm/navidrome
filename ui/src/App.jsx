@@ -101,11 +101,6 @@ const Admin = (props) => {
         <Resource name="artist" {...artist} />,
         <Resource name="song" {...song} />,
         <Resource
-          name="radio"
-          {...(permissions === 'admin' ? radio.admin : radio.all)}
-        />,
-        config.enableSharing && <Resource name="share" {...share} />,
-        <Resource
           name="playlist"
           {...playlist}
           options={{ subMenu: 'playlist' }}
