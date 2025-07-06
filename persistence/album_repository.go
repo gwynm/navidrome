@@ -125,6 +125,7 @@ var albumFilters = sync.OnceValue(func() map[string]filterFunc {
 		"genre_id":        tagIDFilter,
 		"role_total_id":   allRolesFilter,
 		"library_id":      libraryIdFilter,
+		"major":           majorAlbumFilter,
 	}
 	// Add all album tags as filters
 	for tag := range model.AlbumLevelTags() {
@@ -183,6 +184,10 @@ func artistRoleFilter(name string, value interface{}) Sqlizer {
 
 func allRolesFilter(_ string, value interface{}) Sqlizer {
 	return Like{"participants": fmt.Sprintf(`%%"%s"%%`, value)}
+}
+
+func majorAlbumFilter(string, interface{}) Sqlizer {
+	return GtOrEq{"song_count": 5}
 }
 
 func (r *albumRepository) CountAll(options ...model.QueryOptions) (int64, error) {

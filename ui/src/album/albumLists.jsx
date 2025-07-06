@@ -23,11 +23,11 @@ const albumLists = {
         activeIcon={AlbumIcon}
       />
     ),
-    params: 'sort=name&order=ASC&filter={}',
+    params: 'sort=name&order=ASC&filter={"major":true}',
   },
   random: {
     icon: <ShuffleIcon />,
-    params: 'sort=random&order=ASC&filter={}',
+    params: 'sort=random&order=ASC&filter={"major":true}',
   },
   ...(config.enableFavourites && {
     starred: {
@@ -38,7 +38,7 @@ const albumLists = {
           activeIcon={FavoriteIcon}
         />
       ),
-      params: 'sort=starred_at&order=DESC&filter={"starred":true}',
+      params: 'sort=starred_at&order=DESC&filter={"starred":true,"major":true}',
     },
   }),
   ...(config.enableStarRating && {
@@ -50,7 +50,7 @@ const albumLists = {
           activeIcon={StarIcon}
         />
       ),
-      params: 'sort=rating&order=DESC&filter={"has_rating":true}',
+      params: 'sort=rating&order=DESC&filter={"has_rating":true,"major":true}',
     },
   }),
   recentlyAdded: {
@@ -61,7 +61,7 @@ const albumLists = {
         activeIcon={LibraryAddIcon}
       />
     ),
-    params: 'sort=recently_added&order=DESC&filter={}',
+    params: 'sort=recently_added&order=DESC&filter={"major":true}',
   },
   recentlyPlayed: {
     icon: (
@@ -71,11 +71,13 @@ const albumLists = {
         activeIcon={VideoLibraryIcon}
       />
     ),
-    params: 'sort=play_date&order=DESC&filter={"recently_played":true}',
+    params:
+      'sort=play_date&order=DESC&filter={"recently_played":true,"major":true}',
   },
   mostPlayed: {
     icon: <RepeatIcon />,
-    params: 'sort=play_count&order=DESC&filter={"recently_played":true}',
+    params:
+      'sort=play_count&order=DESC&filter={"recently_played":true,"major":true}',
   },
 }
 

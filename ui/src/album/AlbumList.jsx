@@ -157,6 +157,7 @@ const AlbumFilter = (props) => {
           defaultValue={true}
         />
       )}
+      <QuickFilter source="major" resource="album" defaultValue={true} />
       {isAdmin && <NullableBooleanInput source="missing" />}
     </Filter>
   )
@@ -231,6 +232,7 @@ const AlbumList = (props) => {
         exporter={false}
         bulkActionButtons={false}
         filter={{ seed }}
+        filterDefaultValues={{ major: true }}
         actions={<AlbumListActions />}
         filters={<AlbumFilter />}
         perPage={perPage}

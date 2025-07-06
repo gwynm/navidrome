@@ -89,6 +89,7 @@ const ArtistFilter = (props) => {
           defaultValue={true}
         />
       )}
+      <QuickFilter source="major" resource="artist" defaultValue={true} />
       {isAdmin && <NullableBooleanInput source="missing" />}
     </Filter>
   )
@@ -210,7 +211,7 @@ const ArtistList = (props) => {
         exporter={false}
         bulkActionButtons={false}
         filters={<ArtistFilter />}
-        filterDefaultValues={{ role: 'albumartist' }}
+        filterDefaultValues={{ role: 'albumartist', major: true }}
         actions={<ArtistListActions />}
       >
         <ArtistListView {...props} />

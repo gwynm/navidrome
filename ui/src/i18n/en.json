@@ -78,7 +78,8 @@
         "grouping": "Grouping",
         "media": "Media",
         "mood": "Mood",
-        "missing": "Missing"
+        "missing": "Missing",
+        "major": "Major Albums (5+ songs)"
       },
       "actions": {
         "playAll": "Play",
@@ -111,7 +112,8 @@
         "rating": "Rating",
         "genre": "Genre",
         "role": "Role",
-        "missing": "Missing"
+        "missing": "Missing",
+        "major": "Major Artists (5+ songs)"
       },
       "roles": {
         "albumartist": "Album Artist |||| Album Artists",

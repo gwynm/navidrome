@@ -137,6 +137,7 @@ func NewArtistRepository(ctx context.Context, db dbx.Builder) model.ArtistReposi
 		"role":       roleFilter,
 		"missing":    booleanFilter,
 		"library_id": artistLibraryIdFilter,
+		"major":      majorArtistFilter,
 	})
 	r.setSortMappings(map[string]string{
 		"name":        "order_artist_name",
@@ -166,6 +167,10 @@ func roleFilter(_ string, role any) Sqlizer {
 // artistLibraryIdFilter filters artists based on library access through the library_artist table
 func artistLibraryIdFilter(_ string, value interface{}) Sqlizer {
 	return Eq{"library_artist.library_id": value}
+}
+
+func majorArtistFilter(string, interface{}) Sqlizer {
+	return GtOrEq{"json_extract(stats, '$.total.m')": 5}
 }
 
 // applyLibraryFilterToArtistQuery applies library filtering to artist queries through the library_artist junction table
