@@ -1,4 +1,8 @@
 #!/bin/sh
 set -e
 
+# Unset env vars that interfere with config tests
+unset ND_MUSICFOLDER
+unset ND_DATAFOLDER
+
 make pre-push
