@@ -18,6 +18,7 @@ import {
   ArtistLinkField,
   DateField,
   DurationField,
+  EnergyField,
   QualityInfo,
   RatingField,
   SizeField,
@@ -132,6 +133,9 @@ const AlbumSongs = (props) => {
           sortable={false}
         />
       ),
+      energy: isDesktop && (
+        <EnergyField source="energy" resource="song" sortable={false} />
+      ),
       rating: isDesktop && config.enableStarRating && (
         <RatingField
           resource={'song'}
@@ -155,6 +159,7 @@ const AlbumSongs = (props) => {
       'playDate',
       'size',
       'mood',
+      'energy',
       'genre',
     ],
   })

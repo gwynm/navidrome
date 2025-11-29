@@ -25,6 +25,7 @@ import {
   SongTitleField,
   SongSimpleList,
   RatingField,
+  EnergyField,
   useResourceRefresh,
   useSongsPerPage,
   ArtistLinkField,
@@ -120,6 +121,23 @@ const SongFilter = (props) => {
           optionText="tagValue"
         />
       </ReferenceArrayInput>
+      <ReferenceArrayInput
+        label={translate('resources.song.fields.energy')}
+        source="energy"
+        reference="tag"
+        perPage={0}
+        sort={{ field: 'tagValue', order: 'ASC' }}
+        filter={{ tag_name: 'energy' }}
+        filterToQuery={(searchText) => ({
+          tag_value: [searchText],
+        })}
+      >
+        <AutocompleteArrayInput
+          emptyText="-- None --"
+          classes={classes}
+          optionText="tagValue"
+        />
+      </ReferenceArrayInput>
       {config.enableFavourites && (
         <QuickFilter
           source="starred"
@@ -184,6 +202,7 @@ const SongList = (props) => {
           sortable={false}
         />
       ),
+      energy: isDesktop && <EnergyField source="energy" resource="song" />,
       comment: <TextField source="comment" />,
       path: <PathField source="path" />,
       createdAt: (
@@ -202,6 +221,7 @@ const SongList = (props) => {
       'albumArtist',
       'genre',
       'mood',
+      'energy',
       'comment',
       'path',
       'createdAt',

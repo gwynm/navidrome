@@ -1,8 +1,10 @@
 package taglib
 
 import (
+	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/navidrome/navidrome/utils"
@@ -290,6 +292,73 @@ var _ = Describe("Extractor", func() {
 				parseTIPL(tags)
 				Expect(tags).To(BeEmpty())
 			})
+		})
+	})
+
+	Describe("WriteTag", func() {
+		// Helper function to copy a test file to a temp location
+		copyTestFile := func(src string) string {
+			ext := filepath.Ext(src)
+			tmpFile := utils.TempFileName("taglib_write_test-", ext)
+
+			srcFile, err := os.Open(src)
+			Expect(err).NotTo(HaveOccurred())
+			defer srcFile.Close()
+
+			dstFile, err := os.Create(tmpFile)
+			Expect(err).NotTo(HaveOccurred())
+			defer dstFile.Close()
+
+			_, err = io.Copy(dstFile, srcFile)
+			Expect(err).NotTo(HaveOccurred())
+
+			return tmpFile
+		}
+
+		DescribeTable("writes and reads back custom tags",
+			func(fixture string, tagKey string) {
+				testFile := copyTestFile("tests/fixtures/" + fixture)
+				DeferCleanup(func() {
+					os.Remove(testFile)
+				})
+
+				// Write a tag
+				err := WriteTag(testFile, "ENERGY", "high")
+				Expect(err).NotTo(HaveOccurred())
+
+				// Read it back
+				tags, err := Read(testFile)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(tags).To(HaveKeyWithValue(tagKey, []string{"high"}))
+
+				// Overwrite with a different value
+				err = WriteTag(testFile, "ENERGY", "low")
+				Expect(err).NotTo(HaveOccurred())
+
+				// Read it back again
+				tags, err = Read(testFile)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(tags).To(HaveKeyWithValue(tagKey, []string{"low"}))
+
+				// Remove the tag by setting empty value
+				err = WriteTag(testFile, "ENERGY", "")
+				Expect(err).NotTo(HaveOccurred())
+
+				// Verify it's gone
+				tags, err = Read(testFile)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(tags).NotTo(HaveKey(tagKey))
+			},
+			Entry("MP3 files", "test.mp3", "energy"),
+			Entry("FLAC files", "test.flac", "energy"),
+			Entry("OGG files", "test.ogg", "energy"),
+			Entry("M4A files", "test.m4a", "----:com.apple.itunes:energy"),
+		)
+
+		It("returns error for non-existent file", func() {
+			err := WriteTag("/non/existent/file.mp3", "ENERGY", "high")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("cannot open file"))
 		})
 	})
 

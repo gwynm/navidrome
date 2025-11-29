@@ -25,6 +25,8 @@
 
 char has_cover(const TagLib::FileRef f);
 
+#include <textidentificationframe.h>
+
 static char TAGLIB_VERSION[16];
 
 char* taglib_version() {
@@ -296,4 +298,64 @@ char has_cover(const TagLib::FileRef f) {
   }
 
   return hasCover;
+}
+
+// Write a tag to a file. Supports MP3, FLAC, OGG/Opus, and M4A.
+// tag_name should be uppercase (e.g., "ENERGY")
+// tag_value is the value to set (empty string removes the tag)
+// Returns 0 on success, negative error code on failure.
+int taglib_write_tag(const FILENAME_CHAR_T *filename, const char *tag_name, const char *tag_value) {
+  TagLib::FileRef f(filename, false); // false = don't read audio properties (faster)
+
+  if (f.isNull() || !f.file()) {
+    return TAGLIB_ERR_PARSE;
+  }
+
+  if (f.file()->readOnly()) {
+    return TAGLIB_ERR_READONLY;
+  }
+
+  TagLib::String tagNameStr(tag_name);
+  TagLib::String tagValueStr(tag_value, TagLib::String::UTF8);
+  bool isEmpty = tagValueStr.isEmpty();
+
+  // Handle M4A files specially - they use iTunes-style freeform atoms
+  TagLib::MP4::File *m4aFile = dynamic_cast<TagLib::MP4::File *>(f.file());
+  if (m4aFile != NULL && m4aFile->tag()) {
+    // iTunes freeform tag format: ----:com.apple.iTunes:TAGNAME
+    TagLib::String m4aKey = "----:com.apple.iTunes:" + tagNameStr;
+    TagLib::MP4::Tag *tag = m4aFile->tag();
+    
+    if (isEmpty) {
+      tag->removeItem(m4aKey);
+    } else {
+      tag->setItem(m4aKey, TagLib::MP4::Item(TagLib::StringList(tagValueStr)));
+    }
+    
+    if (!m4aFile->save()) {
+      return TAGLIB_ERR_SAVE;
+    }
+    return 0;
+  }
+
+  // For other formats, use the PropertyMap interface
+  // This handles:
+  // - MP3: TXXX frames (e.g., TXXX:ENERGY)
+  // - FLAC/OGG/Opus: Vorbis comments (e.g., ENERGY=value)
+  TagLib::PropertyMap props = f.file()->properties();
+  
+  if (isEmpty) {
+    props.erase(tagNameStr);
+  } else {
+    props.replace(tagNameStr, TagLib::StringList(tagValueStr));
+  }
+
+  // setProperties returns unsupported properties - we ignore those
+  f.file()->setProperties(props);
+
+  if (!f.save()) {
+    return TAGLIB_ERR_SAVE;
+  }
+
+  return 0;
 }

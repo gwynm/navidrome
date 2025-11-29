@@ -32,6 +32,7 @@
         "createdAt": "Date added",
         "grouping": "Grouping",
         "mood": "Mood",
+        "energy": "Energy",
         "participants": "Additional participants",
         "tags": "Additional Tags",
         "mappedTags": "Mapped tags",

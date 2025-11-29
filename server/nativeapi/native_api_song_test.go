@@ -428,4 +428,66 @@ var _ = Describe("Song Endpoints", func() {
 			})
 		})
 	})
+
+	Describe("PUT /song/{id}/energy", func() {
+		Context("validation", func() {
+			It("rejects invalid energy values", func() {
+				body := []byte(`{"value": "invalid"}`)
+				req := createAuthenticatedRequest("PUT", "/song/song-1/energy", body)
+				router.ServeHTTP(w, req)
+
+				Expect(w.Code).To(Equal(http.StatusBadRequest))
+				Expect(w.Body.String()).To(ContainSubstring("Invalid energy value"))
+			})
+
+			It("accepts valid energy values (low, medium, high)", func() {
+				for _, value := range []string{"low", "medium", "high"} {
+					w = httptest.NewRecorder()
+					body := []byte(`{"value": "` + value + `"}`)
+					req := createAuthenticatedRequest("PUT", "/song/song-1/energy", body)
+					router.ServeHTTP(w, req)
+
+					// Will fail because we can't write to the mock file system,
+					// but it should get past validation (not return 400)
+					Expect(w.Code).NotTo(Equal(http.StatusBadRequest))
+				}
+			})
+
+			It("accepts empty value to unset energy", func() {
+				body := []byte(`{"value": ""}`)
+				req := createAuthenticatedRequest("PUT", "/song/song-1/energy", body)
+				router.ServeHTTP(w, req)
+
+				// Will fail because we can't write to the mock file system,
+				// but it should get past validation (not return 400)
+				Expect(w.Code).NotTo(Equal(http.StatusBadRequest))
+			})
+
+			It("returns 404 for non-existent song", func() {
+				body := []byte(`{"value": "high"}`)
+				req := createAuthenticatedRequest("PUT", "/song/non-existent/energy", body)
+				router.ServeHTTP(w, req)
+
+				Expect(w.Code).To(Equal(http.StatusNotFound))
+			})
+
+			It("rejects malformed JSON body", func() {
+				body := []byte(`{invalid json}`)
+				req := createAuthenticatedRequest("PUT", "/song/song-1/energy", body)
+				router.ServeHTTP(w, req)
+
+				Expect(w.Code).To(Equal(http.StatusBadRequest))
+			})
+		})
+
+		Context("when user is not authenticated", func() {
+			It("returns unauthorized", func() {
+				body := []byte(`{"value": "high"}`)
+				req := createUnauthenticatedRequest("PUT", "/song/song-1/energy", body)
+				router.ServeHTTP(w, req)
+
+				Expect(w.Code).To(Equal(http.StatusUnauthorized))
+			})
+		})
+	})
 })

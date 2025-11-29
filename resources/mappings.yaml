@@ -255,3 +255,5 @@ additional:
     aliases: [ woar, website, weblink, wm/authorurl ]
   work:
     aliases: [ txxx:work, tit1, work, ©wrk, wm/work ]
+  energy:
+    aliases: [ txxx:energy, energy, ----:com.apple.itunes:energy ]

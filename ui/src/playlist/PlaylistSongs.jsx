@@ -17,6 +17,7 @@ import { makeStyles } from '@material-ui/core/styles'
 import ReactDragListView from 'react-drag-listview'
 import {
   DurationField,
+  EnergyField,
   SongInfo,
   SongContextMenu,
   SongDatagrid,
@@ -170,6 +171,7 @@ const PlaylistSongs = ({ playlistId, readOnly, actions, ...props }) => {
       channels: isDesktop && <NumberField source="channels" />,
       bpm: isDesktop && <NumberField source="bpm" />,
       genre: <TextField source="genre" />,
+      energy: isDesktop && <EnergyField source="energy" resource="song" />,
       rating: config.enableStarRating && (
         <RatingField
           source="rating"
@@ -192,6 +194,7 @@ const PlaylistSongs = ({ playlistId, readOnly, actions, ...props }) => {
       'playDate',
       'albumArtist',
       'genre',
+      'energy',
       'rating',
     ],
   })

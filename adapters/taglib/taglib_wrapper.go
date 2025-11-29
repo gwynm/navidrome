@@ -155,3 +155,43 @@ func goPutLyricLine(id C.ulong, lang *C.char, text *C.char, time C.int) {
 		m[k] = []string{formattedLine}
 	}
 }
+
+// WriteTag writes a tag to an audio file.
+// tagName should be uppercase (e.g., "ENERGY").
+// tagValue is the value to set (empty string removes the tag).
+// Supports MP3, FLAC, OGG/Opus, and M4A files.
+func WriteTag(filename string, tagName string, tagValue string) (err error) {
+	// Do not crash on failures in the C code/library
+	debug.SetPanicOnFault(true)
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error("taglib: recovered from panic when writing tag", "file", filename, "tag", tagName, "error", r)
+			err = fmt.Errorf("taglib: recovered from panic: %s", r)
+		}
+	}()
+
+	fp := getFilename(filename)
+	defer C.free(unsafe.Pointer(fp))
+
+	tagNameC := C.CString(tagName)
+	defer C.free(unsafe.Pointer(tagNameC))
+
+	tagValueC := C.CString(tagValue)
+	defer C.free(unsafe.Pointer(tagValueC))
+
+	log.Debug("taglib: writing tag", "filename", filename, "tag", tagName, "value", tagValue)
+	res := C.taglib_write_tag(fp, tagNameC, tagValueC)
+
+	switch res {
+	case C.TAGLIB_ERR_PARSE:
+		return fmt.Errorf("cannot open file: %s", filename)
+	case C.TAGLIB_ERR_READONLY:
+		return fmt.Errorf("file is read-only: %s", filename)
+	case C.TAGLIB_ERR_SAVE:
+		return fmt.Errorf("failed to save file: %s", filename)
+	case 0:
+		return nil
+	default:
+		return fmt.Errorf("unknown error writing tag: %d", res)
+	}
+}
