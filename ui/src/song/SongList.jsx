@@ -26,6 +26,7 @@ import {
   SongSimpleList,
   RatingField,
   EnergyField,
+  MoodField,
   useResourceRefresh,
   useSongsPerPage,
   ArtistLinkField,
@@ -195,13 +196,7 @@ const SongList = (props) => {
       ),
       bpm: isDesktop && <NumberField source="bpm" />,
       genre: <TextField source="genre" />,
-      mood: isDesktop && (
-        <FunctionField
-          source="mood"
-          render={(r) => r.tags?.mood?.[0] || ''}
-          sortable={false}
-        />
-      ),
+      mood: isDesktop && <MoodField source="mood" resource="song" />,
       energy: isDesktop && <EnergyField source="energy" resource="song" />,
       comment: <TextField source="comment" />,
       path: <PathField source="path" />,

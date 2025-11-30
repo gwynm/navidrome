@@ -18,6 +18,7 @@ import ReactDragListView from 'react-drag-listview'
 import {
   DurationField,
   EnergyField,
+  MoodField,
   SongInfo,
   SongContextMenu,
   SongDatagrid,
@@ -171,6 +172,7 @@ const PlaylistSongs = ({ playlistId, readOnly, actions, ...props }) => {
       channels: isDesktop && <NumberField source="channels" />,
       bpm: isDesktop && <NumberField source="bpm" />,
       genre: <TextField source="genre" />,
+      mood: isDesktop && <MoodField source="mood" resource="song" />,
       energy: isDesktop && <EnergyField source="energy" resource="song" />,
       rating: config.enableStarRating && (
         <RatingField
@@ -194,6 +196,7 @@ const PlaylistSongs = ({ playlistId, readOnly, actions, ...props }) => {
       'playDate',
       'albumArtist',
       'genre',
+      'mood',
       'energy',
       'rating',
     ],

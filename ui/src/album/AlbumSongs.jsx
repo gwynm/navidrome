@@ -19,6 +19,7 @@ import {
   DateField,
   DurationField,
   EnergyField,
+  MoodField,
   QualityInfo,
   RatingField,
   SizeField,
@@ -127,11 +128,7 @@ const AlbumSongs = (props) => {
       bpm: isDesktop && <NumberField source="bpm" sortable={false} />,
       genre: <TextField source="genre" sortable={false} />,
       mood: isDesktop && (
-        <FunctionField
-          source="mood"
-          render={(r) => r.tags?.mood?.[0] ?? ''}
-          sortable={false}
-        />
+        <MoodField source="mood" resource="song" sortable={false} />
       ),
       energy: isDesktop && (
         <EnergyField source="energy" resource="song" sortable={false} />

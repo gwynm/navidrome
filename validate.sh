@@ -8,21 +8,8 @@ echo ""
 unset ND_MUSICFOLDER
 unset ND_DATAFOLDER
 
-echo "▶ Running Go linter..."
-make lint
-echo "✓ Go lint passed"
-echo ""
+# Run the same checks as pre-push hook
+make pre-push
 
-echo "▶ Running Go tests..."
-make test
-echo "✓ Go tests passed"
 echo ""
-
-echo "▶ Running JavaScript tests..."
-cd ui && npm test
-cd ..
-echo "✓ JavaScript tests passed"
-echo ""
-
 echo "=== All validation passed! ==="
-

@@ -4,7 +4,7 @@ import { useDataProvider, useNotify, useRecordContext } from 'react-admin'
 import { makeStyles } from '@material-ui/core/styles'
 import httpClient from '../dataProvider/httpClient'
 
-const ENERGY_VALUES = ['low', 'medium', 'high']
+const MOOD_VALUES = ['negative', 'neutral', 'positive']
 const EMPTY_RECORD = {}
 
 const useStyles = makeStyles((theme) => ({
@@ -24,14 +24,14 @@ const useStyles = makeStyles((theme) => ({
       transform: 'scale(1.2)',
     },
   },
-  squareLow: {
-    backgroundColor: theme.palette.success.main,
+  squareNegative: {
+    backgroundColor: '#4C0763',
   },
-  squareMedium: {
-    backgroundColor: theme.palette.warning.main,
+  squareNeutral: {
+    backgroundColor: '#57C785',
   },
-  squareHigh: {
-    backgroundColor: theme.palette.error.main,
+  squarePositive: {
+    backgroundColor: '#FF00EA',
   },
   // Unselected squares are dimmed
   unselected: {
@@ -55,7 +55,7 @@ const useStyles = makeStyles((theme) => ({
   },
 }))
 
-export const EnergyField = ({ resource, ...rest }) => {
+export const MoodField = ({ resource, ...rest }) => {
   const contextRecord = useRecordContext(rest)
   const record = useMemo(() => contextRecord || EMPTY_RECORD, [contextRecord])
   const classes = useStyles()
@@ -63,16 +63,16 @@ export const EnergyField = ({ resource, ...rest }) => {
   const dataProvider = useDataProvider()
   const [loading, setLoading] = useState(false)
 
-  // Get current energy value from tags
-  const currentEnergy = record?.tags?.energy?.[0] || ''
+  // Get current mood value from tags
+  const currentMood = record?.tags?.mood?.[0] || ''
 
-  const setEnergy = useCallback(
+  const setMood = useCallback(
     async (value) => {
       const id = record.mediaFileId || record.id
       setLoading(true)
 
       try {
-        await httpClient(`/api/song/${id}/energy`, {
+        await httpClient(`/api/song/${id}/mood`, {
           method: 'PUT',
           body: JSON.stringify({ value }),
         })
@@ -104,10 +104,10 @@ export const EnergyField = ({ resource, ...rest }) => {
       e.stopPropagation()
       if (record?.missing || loading) return
       // If clicking the current value, unset it
-      const newValue = value === currentEnergy ? '' : value
-      setEnergy(newValue)
+      const newValue = value === currentMood ? '' : value
+      setMood(newValue)
     },
-    [currentEnergy, setEnergy, record?.missing, loading],
+    [currentMood, setMood, record?.missing, loading],
   )
 
   const isDisabled = record?.missing
@@ -115,14 +115,14 @@ export const EnergyField = ({ resource, ...rest }) => {
 
   return (
     <div className={containerClass} onClick={(e) => e.stopPropagation()}>
-      {ENERGY_VALUES.map((value) => {
-        const isSelected = value === currentEnergy
+      {MOOD_VALUES.map((value) => {
+        const isSelected = value === currentMood
         const squareColorClass =
-          value === 'low'
-            ? classes.squareLow
-            : value === 'medium'
-              ? classes.squareMedium
-              : classes.squareHigh
+          value === 'negative'
+            ? classes.squareNegative
+            : value === 'neutral'
+              ? classes.squareNeutral
+              : classes.squarePositive
         const selectionClass = isSelected
           ? classes.selected
           : classes.unselected
@@ -140,9 +140,9 @@ export const EnergyField = ({ resource, ...rest }) => {
   )
 }
 
-EnergyField.propTypes = {
+MoodField.propTypes = {
   resource: PropTypes.string.isRequired,
   record: PropTypes.object,
 }
 
-export default EnergyField
+export default MoodField
