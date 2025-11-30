@@ -33,6 +33,7 @@ import {
 import config from '../config'
 import { formatFullDate, intersperse } from '../utils'
 import AlbumExternalLinks from './AlbumExternalLinks'
+import AlbumTagFields from './AlbumTagFields'
 
 const useStyles = makeStyles(
   (theme) => ({
@@ -328,6 +329,7 @@ const AlbumDetails = (props) => {
                 />
               </div>
             )}
+            <AlbumTagFields size={isDesktop ? 'medium' : 'small'} />
             {isDesktop ? (
               <GenreList />
             ) : (
