@@ -9,44 +9,13 @@ ARG INSTALL_NODE="true"
 ARG NODE_VERSION="lts/*"
 RUN if [ "${INSTALL_NODE}" = "true" ]; then su vscode -c "source /usr/local/share/nvm/nvm.sh && nvm install ${NODE_VERSION} 2>&1"; fi
 
-# Install system dependencies for Homebrew and Python fallback
+# Install Essentia for audio analysis (energy detection)
+# Note: devcontainer.json forces x86_64 platform so pip wheels are available
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
-    && apt-get -y install --no-install-recommends \
-        curl \
-        git \
-        procps \
-        file \
-        python3-pip \
-        python3-dev \
-        build-essential \
+    && apt-get -y install --no-install-recommends python3-pip \
+    && pip3 install --break-system-packages essentia \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
-
-# Install Homebrew as vscode user
-USER vscode
-WORKDIR /home/vscode
-
-# Install Homebrew
-RUN NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# Add Homebrew to PATH for this build and set up shell
-RUN echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc
-
-# Install Essentia via Homebrew (builds from source, native ARM64 support)
-# This may take a while as it compiles from source
-RUN eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
-    && brew tap MTG/essentia \
-    && brew install essentia --HEAD \
-    || echo "Essentia Homebrew build failed - will use Python fallback if available"
-
-# Set up Homebrew environment variables
-ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH}"
-ENV HOMEBREW_PREFIX="/home/linuxbrew/.linuxbrew"
-ENV HOMEBREW_CELLAR="/home/linuxbrew/.linuxbrew/Cellar"
-ENV HOMEBREW_REPOSITORY="/home/linuxbrew/.linuxbrew/Homebrew"
-
-# Switch back to root for remaining setup
-USER root
 
 # Install dependencies and download custom TagLib with DSF support (same as production)
 ARG CROSS_TAGLIB_VERSION=2.1.0-1
@@ -54,6 +23,7 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && apt-get -y install --no-install-recommends \
         wget \
         pkg-config \
+        build-essential \
         ffmpeg \
     && mkdir -p /usr/local/taglib \
     && cd /tmp \

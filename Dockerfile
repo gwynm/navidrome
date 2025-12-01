@@ -122,14 +122,23 @@ COPY --from=build /out /
 
 ########################################################################################################################
 ### Build Final Image
-FROM public.ecr.aws/docker/library/alpine:3.19 AS final
+# Using Debian instead of Alpine for glibc compatibility (required for Essentia audio analysis)
+FROM public.ecr.aws/docker/library/debian:bookworm-slim AS final
 LABEL maintainer="deluan@navidrome.org"
 LABEL org.opencontainers.image.source="https://github.com/navidrome/navidrome"
 
-# Install ffmpeg, mpv, and Python for Essentia audio analysis (optional)
-# Essentia is only available for x86_64; on other platforms energy analysis will be disabled
-RUN apk add -U --no-cache ffmpeg mpv sqlite python3 py3-pip \
-    && (pip3 install --break-system-packages essentia 2>/dev/null || echo "Essentia not available for this platform")
+# Install ffmpeg, mpv, and Python for Essentia audio analysis
+# Essentia manylinux wheels require glibc (Debian) and are only available for x86_64
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ffmpeg \
+        mpv \
+        sqlite3 \
+        python3 \
+        python3-pip \
+        ca-certificates \
+    && (pip3 install --break-system-packages essentia 2>/dev/null || echo "Essentia not available for this platform - energy analysis will be disabled") \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy navidrome binary
 COPY --from=build /out/navidrome /app/
