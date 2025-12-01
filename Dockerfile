@@ -134,6 +134,9 @@ RUN apk add -U --no-cache ffmpeg mpv sqlite python3 py3-pip \
 # Copy navidrome binary
 COPY --from=build /out/navidrome /app/
 
+# Copy essentia analysis script for Python fallback (the pip package doesn't include the CLI tool)
+COPY scripts/essentia_analyze.py /app/scripts/
+
 VOLUME ["/data", "/music"]
 ENV ND_MUSICFOLDER=/music
 ENV ND_DATAFOLDER=/data
