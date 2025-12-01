@@ -9,13 +9,44 @@ ARG INSTALL_NODE="true"
 ARG NODE_VERSION="lts/*"
 RUN if [ "${INSTALL_NODE}" = "true" ]; then su vscode -c "source /usr/local/share/nvm/nvm.sh && nvm install ${NODE_VERSION} 2>&1"; fi
 
-# Install Essentia for audio analysis (energy detection)
-# Note: Essentia pip wheels are only available for x86_64. On ARM64, this step will be skipped.
+# Install system dependencies for Homebrew and Python fallback
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
-    && apt-get -y install --no-install-recommends python3-pip \
-    && (pip3 install --break-system-packages essentia 2>/dev/null || echo "Essentia not available for this platform - energy analysis will be disabled") \
+    && apt-get -y install --no-install-recommends \
+        curl \
+        git \
+        procps \
+        file \
+        python3-pip \
+        python3-dev \
+        build-essential \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Homebrew as vscode user
+USER vscode
+WORKDIR /home/vscode
+
+# Install Homebrew
+RUN NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Add Homebrew to PATH for this build and set up shell
+RUN echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc
+
+# Install Essentia via Homebrew (builds from source, native ARM64 support)
+# This may take a while as it compiles from source
+RUN eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
+    && brew tap MTG/essentia \
+    && brew install essentia --HEAD \
+    || echo "Essentia Homebrew build failed - will use Python fallback if available"
+
+# Set up Homebrew environment variables
+ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH}"
+ENV HOMEBREW_PREFIX="/home/linuxbrew/.linuxbrew"
+ENV HOMEBREW_CELLAR="/home/linuxbrew/.linuxbrew/Cellar"
+ENV HOMEBREW_REPOSITORY="/home/linuxbrew/.linuxbrew/Homebrew"
+
+# Switch back to root for remaining setup
+USER root
 
 # Install dependencies and download custom TagLib with DSF support (same as production)
 ARG CROSS_TAGLIB_VERSION=2.1.0-1
@@ -23,7 +54,6 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && apt-get -y install --no-install-recommends \
         wget \
         pkg-config \
-        build-essential \
         ffmpeg \
     && mkdir -p /usr/local/taglib \
     && cd /tmp \
@@ -53,4 +83,4 @@ ENV LD_LIBRARY_PATH=/usr/local/taglib/lib:$LD_LIBRARY_PATH
 # [Optional] Uncomment this line to install global node packages.
 # RUN su vscode -c "source /usr/local/share/nvm/nvm.sh && npm install -g <your-package-here>" 2>&1
 
-RUN echo "Devcontainer is ready. Run `make dev` to start (hot-reloading) servers."
+RUN echo "Devcontainer is ready. Run 'make dev' to start (hot-reloading) servers."

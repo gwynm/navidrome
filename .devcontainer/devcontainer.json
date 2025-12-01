@@ -2,10 +2,6 @@
 	"name": "Go",
 	"build": {
 		"dockerfile": "Dockerfile",
-		// Use x86_64 for Essentia audio analysis support (runs via Rosetta on Apple Silicon)
-		"options": [
-			"--platform=linux/amd64"
-		],
 		"args": {
 			// Update the VARIANT arg to pick a version of Go: 1, 1.15, 1.14
 			"VARIANT": "1.25",
