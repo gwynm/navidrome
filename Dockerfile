@@ -126,8 +126,10 @@ FROM public.ecr.aws/docker/library/alpine:3.19 AS final
 LABEL maintainer="deluan@navidrome.org"
 LABEL org.opencontainers.image.source="https://github.com/navidrome/navidrome"
 
-# Install ffmpeg and mpv
-RUN apk add -U --no-cache ffmpeg mpv sqlite
+# Install ffmpeg, mpv, and Python for Essentia audio analysis (optional)
+# Essentia is only available for x86_64; on other platforms energy analysis will be disabled
+RUN apk add -U --no-cache ffmpeg mpv sqlite python3 py3-pip \
+    && (pip3 install --break-system-packages essentia 2>/dev/null || echo "Essentia not available for this platform")
 
 # Copy navidrome binary
 COPY --from=build /out/navidrome /app/

@@ -14,6 +14,7 @@ import (
 	"github.com/navidrome/navidrome/core/agents/lastfm"
 	"github.com/navidrome/navidrome/core/agents/listenbrainz"
 	"github.com/navidrome/navidrome/core/artwork"
+	"github.com/navidrome/navidrome/core/audio"
 	"github.com/navidrome/navidrome/core/external"
 	"github.com/navidrome/navidrome/core/ffmpeg"
 	"github.com/navidrome/navidrome/core/metrics"
@@ -73,7 +74,8 @@ func CreateNativeAPIRouter(ctx context.Context) *nativeapi.Router {
 	watcher := scanner.GetWatcher(dataStore, modelScanner)
 	library := core.NewLibrary(dataStore, modelScanner, watcher, broker)
 	maintenance := core.NewMaintenance(dataStore)
-	router := nativeapi.New(dataStore, share, playlists, insights, library, maintenance)
+	analyzer := audio.NewAnalyzer()
+	router := nativeapi.New(dataStore, share, playlists, insights, library, maintenance, analyzer)
 	return router
 }
 
