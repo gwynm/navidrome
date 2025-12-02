@@ -20,6 +20,7 @@ extern void goPutLyrics(unsigned long id, char *lang, char *val);
 extern void goPutLyricLine(unsigned long id, char *lang, char *text, int time);
 int taglib_read(const FILENAME_CHAR_T *filename, unsigned long id);
 int taglib_write_tag(const FILENAME_CHAR_T *filename, const char *tag_name, const char *tag_value);
+int taglib_write_lyrics(const FILENAME_CHAR_T *filename, const char *language, const char *lyrics_text);
 char* taglib_version();
 
 #ifdef __cplusplus

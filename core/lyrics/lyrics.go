@@ -18,6 +18,8 @@ func GetLyrics(ctx context.Context, mf *model.MediaFile) (model.LyricList, error
 		switch {
 		case pattern == "embedded":
 			lyricsList, err = fromEmbedded(ctx, mf)
+		case pattern == "genius":
+			lyricsList, err = fromGenius(ctx, mf)
 		case strings.HasPrefix(pattern, "."):
 			lyricsList, err = fromExternalFile(ctx, mf, pattern)
 		default:

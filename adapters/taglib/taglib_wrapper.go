@@ -156,6 +156,47 @@ func goPutLyricLine(id C.ulong, lang *C.char, text *C.char, time C.int) {
 	}
 }
 
+// WriteLyrics writes lyrics to an audio file using the appropriate format for each file type.
+// For MP3/WAV/AIFF: Creates a proper USLT (UnsynchronizedLyricsFrame) ID3v2 frame
+// For FLAC/OGG/Opus: Uses LYRICS Vorbis comment
+// For M4A: Uses the ©lyr atom
+// language should be a 3-letter ISO 639-2 code (e.g., "eng", "xxx" for unspecified)
+func WriteLyrics(filename string, language string, lyricsText string) (err error) {
+	// Do not crash on failures in the C code/library
+	debug.SetPanicOnFault(true)
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error("taglib: recovered from panic when writing lyrics", "file", filename, "error", r)
+			err = fmt.Errorf("taglib: recovered from panic: %s", r)
+		}
+	}()
+
+	fp := getFilename(filename)
+	defer C.free(unsafe.Pointer(fp))
+
+	langC := C.CString(language)
+	defer C.free(unsafe.Pointer(langC))
+
+	lyricsC := C.CString(lyricsText)
+	defer C.free(unsafe.Pointer(lyricsC))
+
+	log.Debug("taglib: writing lyrics", "filename", filename, "language", language)
+	res := C.taglib_write_lyrics(fp, langC, lyricsC)
+
+	switch res {
+	case C.TAGLIB_ERR_PARSE:
+		return fmt.Errorf("cannot open file: %s", filename)
+	case C.TAGLIB_ERR_READONLY:
+		return fmt.Errorf("file is read-only: %s", filename)
+	case C.TAGLIB_ERR_SAVE:
+		return fmt.Errorf("failed to save file: %s", filename)
+	case 0:
+		return nil
+	default:
+		return fmt.Errorf("unknown error writing lyrics: %d", res)
+	}
+}
+
 // WriteTag writes a tag to an audio file.
 // tagName should be uppercase (e.g., "ENERGY").
 // tagValue is the value to set (empty string removes the tag).

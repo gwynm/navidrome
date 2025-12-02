@@ -4,9 +4,9 @@
 		"dockerfile": "Dockerfile",
 		// Use x86_64 for Essentia audio analysis support (runs via Rosetta on Apple Silicon)
 		// Native ARM64 build is blocked by Eigen 5.x incompatibility with Essentia
-		"options": [
-			"--platform=linux/amd64"
-		],
+		// "options": [
+		// 	"--platform=linux/amd64"
+		// ],
 		"args": {
 			// Update the VARIANT arg to pick a version of Go: 1, 1.15, 1.14
 			"VARIANT": "1.25",

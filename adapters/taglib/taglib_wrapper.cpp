@@ -359,3 +359,131 @@ int taglib_write_tag(const FILENAME_CHAR_T *filename, const char *tag_name, cons
 
   return 0;
 }
+
+// Write lyrics to a file using the appropriate format for each file type.
+// For MP3/WAV/AIFF: Creates a proper USLT (UnsynchronizedLyricsFrame) ID3v2 frame
+// For FLAC/OGG/Opus: Uses LYRICS Vorbis comment
+// For M4A: Uses the ©lyr atom
+// language should be a 3-letter ISO 639-2 code (e.g., "eng", "xxx" for unspecified)
+// Returns 0 on success, negative error code on failure.
+int taglib_write_lyrics(const FILENAME_CHAR_T *filename, const char *language, const char *lyrics_text) {
+  TagLib::FileRef f(filename, false); // false = don't read audio properties (faster)
+
+  if (f.isNull() || !f.file()) {
+    return TAGLIB_ERR_PARSE;
+  }
+
+  if (f.file()->readOnly()) {
+    return TAGLIB_ERR_READONLY;
+  }
+
+  TagLib::String lyricsStr(lyrics_text, TagLib::String::UTF8);
+  bool isEmpty = lyricsStr.isEmpty();
+
+  // Helper lambda to get or create ID3v2 tag and write USLT frame
+  auto writeUSLT = [&](TagLib::ID3v2::Tag *id3Tag) -> bool {
+    if (id3Tag == NULL) return false;
+
+    // Remove existing USLT frames with the same language
+    TagLib::ID3v2::FrameList existingFrames = id3Tag->frameListMap()["USLT"];
+    for (auto it = existingFrames.begin(); it != existingFrames.end(); ++it) {
+      TagLib::ID3v2::UnsynchronizedLyricsFrame *frame = 
+        dynamic_cast<TagLib::ID3v2::UnsynchronizedLyricsFrame *>(*it);
+      if (frame != NULL) {
+        TagLib::ByteVector frameLang = frame->language();
+        if (frameLang.size() == 3 && strncmp(frameLang.data(), language, 3) == 0) {
+          id3Tag->removeFrame(frame);
+        }
+      }
+    }
+
+    // Add new frame if lyrics are not empty
+    if (!isEmpty) {
+      TagLib::ID3v2::UnsynchronizedLyricsFrame *newFrame = 
+        new TagLib::ID3v2::UnsynchronizedLyricsFrame(TagLib::String::UTF8);
+      newFrame->setLanguage(TagLib::ByteVector(language, 3));
+      newFrame->setText(lyricsStr);
+      id3Tag->addFrame(newFrame);
+    }
+
+    return true;
+  };
+
+  // ----- MP3
+  TagLib::MPEG::File *mp3File = dynamic_cast<TagLib::MPEG::File *>(f.file());
+  if (mp3File != NULL) {
+    TagLib::ID3v2::Tag *id3Tag = mp3File->ID3v2Tag(true); // true = create if doesn't exist
+    if (!writeUSLT(id3Tag)) {
+      return TAGLIB_ERR_SAVE;
+    }
+    if (!mp3File->save()) {
+      return TAGLIB_ERR_SAVE;
+    }
+    return 0;
+  }
+
+  // ----- WAV (can have ID3v2)
+  TagLib::RIFF::WAV::File *wavFile = dynamic_cast<TagLib::RIFF::WAV::File *>(f.file());
+  if (wavFile != NULL) {
+    TagLib::ID3v2::Tag *id3Tag = wavFile->ID3v2Tag();
+    if (id3Tag != NULL) {
+      if (!writeUSLT(id3Tag)) {
+        return TAGLIB_ERR_SAVE;
+      }
+      if (!wavFile->save()) {
+        return TAGLIB_ERR_SAVE;
+      }
+      return 0;
+    }
+    // If no ID3v2 tag, fall through to PropertyMap approach
+  }
+
+  // ----- AIFF (can have ID3v2)
+  TagLib::RIFF::AIFF::File *aiffFile = dynamic_cast<TagLib::RIFF::AIFF::File *>(f.file());
+  if (aiffFile != NULL && aiffFile->hasID3v2Tag()) {
+    TagLib::ID3v2::Tag *id3Tag = aiffFile->tag();
+    if (id3Tag != NULL) {
+      if (!writeUSLT(id3Tag)) {
+        return TAGLIB_ERR_SAVE;
+      }
+      if (!aiffFile->save()) {
+        return TAGLIB_ERR_SAVE;
+      }
+      return 0;
+    }
+  }
+
+  // ----- M4A - use ©lyr atom
+  TagLib::MP4::File *m4aFile = dynamic_cast<TagLib::MP4::File *>(f.file());
+  if (m4aFile != NULL && m4aFile->tag()) {
+    TagLib::MP4::Tag *tag = m4aFile->tag();
+    
+    if (isEmpty) {
+      tag->removeItem("\251lyr");
+    } else {
+      tag->setItem("\251lyr", TagLib::MP4::Item(lyricsStr));
+    }
+    
+    if (!m4aFile->save()) {
+      return TAGLIB_ERR_SAVE;
+    }
+    return 0;
+  }
+
+  // ----- FLAC/OGG/Opus - use LYRICS Vorbis comment via PropertyMap
+  TagLib::PropertyMap props = f.file()->properties();
+  
+  if (isEmpty) {
+    props.erase("LYRICS");
+  } else {
+    props.replace("LYRICS", TagLib::StringList(lyricsStr));
+  }
+
+  f.file()->setProperties(props);
+
+  if (!f.save()) {
+    return TAGLIB_ERR_SAVE;
+  }
+
+  return 0;
+}

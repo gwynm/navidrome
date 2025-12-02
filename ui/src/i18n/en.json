@@ -90,7 +90,12 @@
         "shuffle": "Shuffle",
         "addToPlaylist": "Add to Playlist",
         "download": "Download",
-        "info": "Get Info"
+        "info": "Get Info",
+        "fetchLyrics": "Fetch Lyrics"
+      },
+      "notifications": {
+        "lyricsFetched": "Fetched lyrics for %{fetched} of %{total} songs (%{skipped} skipped, %{failed} failed)",
+        "lyricsFetchError": "Failed to fetch lyrics. Please check if Genius is configured."
       },
       "lists": {
         "all": "All",

@@ -362,4 +362,96 @@ var _ = Describe("Extractor", func() {
 		})
 	})
 
+	Describe("WriteLyrics", func() {
+		// Helper function to copy a test file to a temp location
+		copyTestFile := func(src string) string {
+			ext := filepath.Ext(src)
+			tmpFile := utils.TempFileName("taglib_lyrics_test-", ext)
+
+			srcFile, err := os.Open(src)
+			Expect(err).NotTo(HaveOccurred())
+			defer srcFile.Close()
+
+			dstFile, err := os.Create(tmpFile)
+			Expect(err).NotTo(HaveOccurred())
+			defer dstFile.Close()
+
+			_, err = io.Copy(dstFile, srcFile)
+			Expect(err).NotTo(HaveOccurred())
+
+			return tmpFile
+		}
+
+		// For FLAC/OGG, lyrics are stored as LYRICS Vorbis comment and read back as "lyrics" key.
+		// The conversion to "lyrics:xxx" happens in extractMetadata(), not in Read().
+		DescribeTable("writes lyrics to Vorbis-based formats",
+			func(fixture string) {
+				testFile := copyTestFile("tests/fixtures/" + fixture)
+				DeferCleanup(func() {
+					os.Remove(testFile)
+				})
+
+				testLyrics := "Line one of the song\nLine two of the song\nLine three"
+
+				// Write lyrics
+				err := WriteLyrics(testFile, "xxx", testLyrics)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Read it back - appears as "lyrics" (parseLyrics in extractMetadata converts to lyrics:xxx)
+				tags, err := Read(testFile)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(tags).To(HaveKey("lyrics"))
+				Expect(tags["lyrics"][0]).To(Equal(testLyrics))
+
+				// Overwrite with different lyrics
+				newLyrics := "Different lyrics here"
+				err = WriteLyrics(testFile, "xxx", newLyrics)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Read it back again
+				tags, err = Read(testFile)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(tags["lyrics"][0]).To(Equal(newLyrics))
+
+				// Remove lyrics by setting empty value
+				err = WriteLyrics(testFile, "xxx", "")
+				Expect(err).NotTo(HaveOccurred())
+
+				// Verify it's gone
+				tags, err = Read(testFile)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(tags).NotTo(HaveKey("lyrics"))
+			},
+			Entry("FLAC files (LYRICS comment)", "test.flac"),
+			Entry("OGG files (LYRICS comment)", "test.ogg"),
+		)
+
+		// For MP3, lyrics are stored as USLT frames and read back as "lyrics:xxx" key.
+		// Note: test.mp3 has existing SYLT (synced lyrics) frames, so we test that USLT is added.
+		It("writes USLT frame to MP3 files", func() {
+			testFile := copyTestFile("tests/fixtures/test.mp3")
+			DeferCleanup(func() {
+				os.Remove(testFile)
+			})
+
+			testLyrics := "New unsynced lyrics\nSecond line"
+
+			// Write lyrics
+			err := WriteLyrics(testFile, "und", testLyrics)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Read it back - should appear as lyrics:und (separate from existing lyrics:xxx SYLT)
+			tags, err := Read(testFile)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(tags).To(HaveKey("lyrics:und"))
+			Expect(tags["lyrics:und"][0]).To(Equal(testLyrics))
+		})
+
+		It("returns error for non-existent file", func() {
+			err := WriteLyrics("/non/existent/file.mp3", "xxx", "some lyrics")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("cannot open file"))
+		})
+	})
+
 })

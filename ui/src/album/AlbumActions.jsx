@@ -1,10 +1,12 @@
-import React from 'react'
+import React, { useState } from 'react'
 import PropTypes from 'prop-types'
 import { useDispatch } from 'react-redux'
 import {
   Button,
   sanitizeListRestProps,
   TopToolbar,
+  useDataProvider,
+  useNotify,
   useRecordContext,
   useTranslate,
 } from 'react-admin'
@@ -12,6 +14,7 @@ import { useMediaQuery, makeStyles } from '@material-ui/core'
 import PlayArrowIcon from '@material-ui/icons/PlayArrow'
 import ShuffleIcon from '@material-ui/icons/Shuffle'
 import CloudDownloadOutlinedIcon from '@material-ui/icons/CloudDownloadOutlined'
+import MusicNoteIcon from '@material-ui/icons/MusicNote'
 import { RiPlayListAddFill, RiPlayList2Fill } from 'react-icons/ri'
 import PlaylistAddIcon from '@material-ui/icons/PlaylistAdd'
 import ShareIcon from '@material-ui/icons/Share'
@@ -53,6 +56,9 @@ const AlbumActions = ({
   const dispatch = useDispatch()
   const translate = useTranslate()
   const classes = useStyles()
+  const dataProvider = useDataProvider()
+  const notify = useNotify()
+  const [fetchingLyrics, setFetchingLyrics] = useState(false)
   const isDesktop = useMediaQuery((theme) => theme.breakpoints.up('md'))
   const isNotSmall = useMediaQuery((theme) => theme.breakpoints.up('sm'))
 
@@ -84,6 +90,24 @@ const AlbumActions = ({
   const handleDownload = React.useCallback(() => {
     dispatch(openDownloadMenu(record, DOWNLOAD_MENU_ALBUM))
   }, [dispatch, record])
+
+  const handleFetchLyrics = React.useCallback(async () => {
+    setFetchingLyrics(true)
+    try {
+      const result = await dataProvider.fetchAlbumLyrics(record.id)
+      const { fetched, failed, skipped, total } = result.data
+      notify('resources.album.notifications.lyricsFetched', {
+        type: 'info',
+        messageArgs: { fetched, failed, skipped, total },
+      })
+    } catch (error) {
+      notify('resources.album.notifications.lyricsFetchError', {
+        type: 'warning',
+      })
+    } finally {
+      setFetchingLyrics(false)
+    }
+  }, [dataProvider, record, notify])
 
   return (
     <TopToolbar className={className} {...sanitizeListRestProps(rest)}>
@@ -138,6 +162,13 @@ const AlbumActions = ({
               <CloudDownloadOutlinedIcon />
             </AlbumButton>
           )}
+          <Button
+            onClick={handleFetchLyrics}
+            disabled={fetchingLyrics}
+            label={translate('resources.album.actions.fetchLyrics')}
+          >
+            <MusicNoteIcon />
+          </Button>
         </div>
         <div>{isNotSmall && <ToggleFieldsMenu resource="albumSong" />}</div>
       </div>

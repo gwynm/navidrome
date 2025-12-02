@@ -10,12 +10,16 @@ ARG NODE_VERSION="lts/*"
 RUN if [ "${INSTALL_NODE}" = "true" ]; then su vscode -c "source /usr/local/share/nvm/nvm.sh && nvm install ${NODE_VERSION} 2>&1"; fi
 
 # Install Essentia for audio analysis (energy detection)
-# Note: devcontainer.json forces x86_64 platform so pip wheels are available
-RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
-    && apt-get -y install --no-install-recommends python3-pip \
-    && pip3 install --break-system-packages essentia \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+# Only install on x86_64 - no pip wheels available for arm64
+RUN if [ "$(uname -m)" = "x86_64" ]; then \
+        apt-get update && export DEBIAN_FRONTEND=noninteractive \
+        && apt-get -y install --no-install-recommends python3-pip \
+        && pip3 install --break-system-packages essentia \
+        && apt-get clean \
+        && rm -rf /var/lib/apt/lists/*; \
+    else \
+        echo "Skipping Essentia installation on $(uname -m) - no pip wheels available"; \
+    fi
 
 # Install dependencies and download custom TagLib with DSF support (same as production)
 ARG CROSS_TAGLIB_VERSION=2.1.0-1

@@ -220,6 +220,13 @@ const wrapperDataProvider = {
       data: json,
     }))
   },
+  fetchAlbumLyrics: (albumId) => {
+    return httpClient(`${REST_URL}/album/${albumId}/fetch-lyrics`, {
+      method: 'POST',
+    }).then(({ json }) => ({
+      data: json,
+    }))
+  },
 }
 
 export default wrapperDataProvider
