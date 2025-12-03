@@ -64,6 +64,12 @@ const mapToAudioLists = (item) => {
           ms.toString()
           lyricText += `[${pad(min)}:${pad(sec)}.${pad(ms)}] ${line.value}\n`
         }
+        break // Use first synced lyrics found
+      } else if (!lyricText) {
+        // Fall back to unsynced lyrics (plain text, no timestamps)
+        for (const line of structuredLyric.line) {
+          lyricText += `${line.value}\n`
+        }
       }
     }
   }
