@@ -227,6 +227,13 @@ const wrapperDataProvider = {
       data: json,
     }))
   },
+  fetchPlaylistLyrics: (playlistId) => {
+    return httpClient(`${REST_URL}/playlist/${playlistId}/fetch-lyrics`, {
+      method: 'POST',
+    }).then(({ json }) => ({
+      data: json,
+    }))
+  },
 }
 
 export default wrapperDataProvider

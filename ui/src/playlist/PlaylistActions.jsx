@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useDispatch } from 'react-redux'
 import {
   Button,
@@ -17,6 +17,7 @@ import { RiPlayListAddFill, RiPlayList2Fill } from 'react-icons/ri'
 import QueueMusicIcon from '@material-ui/icons/QueueMusic'
 import ShareIcon from '@material-ui/icons/Share'
 import EditIcon from '@material-ui/icons/Edit'
+import MusicNoteIcon from '@material-ui/icons/MusicNote'
 import { httpClient } from '../dataProvider'
 import {
   playNext,
@@ -44,6 +45,7 @@ const PlaylistActions = ({ className, ids, data, record, ...rest }) => {
   const dataProvider = useDataProvider()
   const notify = useNotify()
   const redirect = useRedirect()
+  const [fetchingLyrics, setFetchingLyrics] = useState(false)
   const isDesktop = useMediaQuery((theme) => theme.breakpoints.up('md'))
   const isNotSmall = useMediaQuery((theme) => theme.breakpoints.up('sm'))
 
@@ -118,6 +120,24 @@ const PlaylistActions = ({ className, ids, data, record, ...rest }) => {
     redirect('edit', 'playlist', record.id)
   }
 
+  const handleFetchLyrics = React.useCallback(async () => {
+    setFetchingLyrics(true)
+    try {
+      const result = await dataProvider.fetchPlaylistLyrics(record.id)
+      const { fetched, failed, skipped, total } = result.data
+      notify('resources.album.notifications.lyricsFetched', {
+        type: 'info',
+        messageArgs: { fetched, failed, skipped, total },
+      })
+    } catch (error) {
+      notify('resources.album.notifications.lyricsFetchError', {
+        type: 'warning',
+      })
+    } finally {
+      setFetchingLyrics(false)
+    }
+  }, [dataProvider, record, notify])
+
   return (
     <TopToolbar className={className} {...sanitizeListRestProps(rest)}>
       <div className={classes.toolbar}>
@@ -162,6 +182,13 @@ const PlaylistActions = ({ className, ids, data, record, ...rest }) => {
               <CloudDownloadOutlinedIcon />
             </Button>
           )}
+          <Button
+            onClick={handleFetchLyrics}
+            disabled={fetchingLyrics}
+            label={translate('resources.album.actions.fetchLyrics')}
+          >
+            <MusicNoteIcon />
+          </Button>
           <Button
             onClick={handleExport}
             label={translate('resources.playlist.actions.export')}
