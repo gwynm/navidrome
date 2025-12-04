@@ -174,6 +174,24 @@ const PlaylistSongs = ({ playlistId, readOnly, actions, ...props }) => {
       genre: <TextField source="genre" />,
       mood: isDesktop && <MoodField source="mood" resource="song" />,
       energy: isDesktop && <EnergyField source="energy" resource="song" />,
+      energyVal: isDesktop && (
+        <FunctionField
+          source="energyVal"
+          render={(r) => r.tags?.energyval?.[0] || ''}
+        />
+      ),
+      happiness: isDesktop && (
+        <FunctionField
+          source="happiness"
+          render={(r) => r.tags?.happiness?.[0] || ''}
+        />
+      ),
+      instrumentalness: isDesktop && (
+        <FunctionField
+          source="instrumentalness"
+          render={(r) => r.tags?.instrumentalness?.[0] || ''}
+        />
+      ),
       rating: config.enableStarRating && (
         <RatingField
           source="rating"
@@ -198,6 +216,9 @@ const PlaylistSongs = ({ playlistId, readOnly, actions, ...props }) => {
       'genre',
       'mood',
       'energy',
+      'energyVal',
+      'happiness',
+      'instrumentalness',
       'rating',
     ],
   })

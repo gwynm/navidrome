@@ -198,6 +198,24 @@ const SongList = (props) => {
       genre: <TextField source="genre" />,
       mood: isDesktop && <MoodField source="mood" resource="song" />,
       energy: isDesktop && <EnergyField source="energy" resource="song" />,
+      energyVal: isDesktop && (
+        <FunctionField
+          source="energyVal"
+          render={(r) => r.tags?.energyval?.[0] || ''}
+        />
+      ),
+      happiness: isDesktop && (
+        <FunctionField
+          source="happiness"
+          render={(r) => r.tags?.happiness?.[0] || ''}
+        />
+      ),
+      instrumentalness: isDesktop && (
+        <FunctionField
+          source="instrumentalness"
+          render={(r) => r.tags?.instrumentalness?.[0] || ''}
+        />
+      ),
       comment: <TextField source="comment" />,
       path: <PathField source="path" />,
       createdAt: (
@@ -217,6 +235,9 @@ const SongList = (props) => {
       'genre',
       'mood',
       'energy',
+      'energyVal',
+      'happiness',
+      'instrumentalness',
       'comment',
       'path',
       'createdAt',

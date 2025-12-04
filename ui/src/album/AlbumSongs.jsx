@@ -133,6 +133,27 @@ const AlbumSongs = (props) => {
       energy: isDesktop && (
         <EnergyField source="energy" resource="song" sortable={false} />
       ),
+      energyVal: isDesktop && (
+        <FunctionField
+          source="energyVal"
+          render={(r) => r.tags?.energyval?.[0] || ''}
+          sortable={false}
+        />
+      ),
+      happiness: isDesktop && (
+        <FunctionField
+          source="happiness"
+          render={(r) => r.tags?.happiness?.[0] || ''}
+          sortable={false}
+        />
+      ),
+      instrumentalness: isDesktop && (
+        <FunctionField
+          source="instrumentalness"
+          render={(r) => r.tags?.instrumentalness?.[0] || ''}
+          sortable={false}
+        />
+      ),
       rating: isDesktop && config.enableStarRating && (
         <RatingField
           resource={'song'}
@@ -157,6 +178,9 @@ const AlbumSongs = (props) => {
       'size',
       'mood',
       'energy',
+      'energyVal',
+      'happiness',
+      'instrumentalness',
       'genre',
     ],
   })
