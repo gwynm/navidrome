@@ -49,6 +49,9 @@ EOT
 FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/node:lts-alpine AS ui
 WORKDIR /app
 
+# Install build dependencies for native modules (required by git dependencies that use node-gyp)
+RUN apk add --no-cache python3 make g++
+
 # Install node dependencies
 COPY ui/package.json ui/package-lock.json ./
 COPY ui/bin/ ./bin/
