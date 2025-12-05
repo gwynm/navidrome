@@ -627,7 +627,15 @@
     "serverDown": "OFFLINE",
     "scanType": "Last Scan",
     "status": "Scan Error",
-    "elapsedTime": "Elapsed Time"
+    "elapsedTime": "Elapsed Time",
+    "trackAnalysis": "Track Analysis",
+    "trackAnalysisProgress": "Progress",
+    "trackAnalysisFetched": "Fetched",
+    "trackAnalysisFailed": "Failed",
+    "startTrackAnalysis": "Start Track Analysis",
+    "stopTrackAnalysis": "Stop Track Analysis",
+    "trackAnalysisStarted": "Track analysis job started",
+    "trackAnalysisStopping": "Track analysis job stopping"
   },
   "nowPlaying": {
     "title": "Now Playing",

@@ -12,6 +12,8 @@ import (
 	_ "github.com/navidrome/navidrome/adapters/taglib"
 	"github.com/navidrome/navidrome/conf"
 	"github.com/navidrome/navidrome/consts"
+	"github.com/navidrome/navidrome/core/trackanalysis"
+	"github.com/navidrome/navidrome/core/trackanalysisjob"
 	"github.com/navidrome/navidrome/db"
 	"github.com/navidrome/navidrome/log"
 	"github.com/navidrome/navidrome/model"
@@ -19,6 +21,7 @@ import (
 	"github.com/navidrome/navidrome/scanner"
 	"github.com/navidrome/navidrome/scheduler"
 	"github.com/navidrome/navidrome/server/backgrounds"
+	"github.com/navidrome/navidrome/server/events"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
@@ -84,6 +87,7 @@ func runNavidrome(ctx context.Context) {
 	g.Go(scheduleDBOptimizer(ctx))
 	g.Go(startPluginManager(ctx))
 	g.Go(runInitialScan(ctx))
+	g.Go(resumeTrackAnalysisJob(ctx))
 	if conf.Server.Scanner.Enabled {
 		g.Go(startScanWatcher(ctx))
 		g.Go(schedulePeriodicScan(ctx))
@@ -324,6 +328,29 @@ func startPlaybackServer(ctx context.Context) func() error {
 		log.Info(ctx, "Starting Jukebox service")
 		playbackInstance := GetPlaybackServer()
 		return playbackInstance.Run(ctx)
+	}
+}
+
+// resumeTrackAnalysisJob resumes the track analysis job if it was interrupted.
+func resumeTrackAnalysisJob(ctx context.Context) func() error {
+	return func() error {
+		if !trackanalysis.IsAvailable() {
+			log.Debug(ctx, "Track analysis API not available, skipping job resume check")
+			return nil
+		}
+
+		ds := CreateDataStore()
+		broker := events.GetBroker()
+
+		inProgress, _ := ds.Property(ctx).DefaultGet(consts.TrackAnalysisJobInProgress, "false")
+		if inProgress == "true" {
+			log.Info(ctx, "Resuming interrupted track analysis job")
+			job := trackanalysisjob.GetInstance(ds, broker)
+			if err := job.Start(ctx); err != nil {
+				log.Error(ctx, "Failed to resume track analysis job", err)
+			}
+		}
+		return nil
 	}
 }
 

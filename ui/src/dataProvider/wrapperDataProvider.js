@@ -248,6 +248,25 @@ const wrapperDataProvider = {
       data: json,
     }))
   },
+  getTrackAnalysisStatus: () => {
+    return httpClient(`${REST_URL}/trackanalysis/status`).then(({ json }) => ({
+      data: json,
+    }))
+  },
+  startTrackAnalysisJob: () => {
+    return httpClient(`${REST_URL}/trackanalysis/start`, {
+      method: 'POST',
+    }).then(({ json }) => ({
+      data: json,
+    }))
+  },
+  stopTrackAnalysisJob: () => {
+    return httpClient(`${REST_URL}/trackanalysis/stop`, {
+      method: 'POST',
+    }).then(({ json }) => ({
+      data: json,
+    }))
+  },
 }
 
 export default wrapperDataProvider

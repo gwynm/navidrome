@@ -371,6 +371,10 @@ type MediaFileRepository interface {
 	FindRecentFilesByMBZTrackID(missing MediaFile, since time.Time) (MediaFiles, error)
 	FindRecentFilesByProperties(missing MediaFile, since time.Time) (MediaFiles, error)
 
+	// Track analysis job methods
+	CountWithoutTrackAnalysis(afterID string) (int64, error)
+	GetNextWithoutTrackAnalysis(afterID string) (*MediaFile, error)
+
 	AnnotatedRepository
 	BookmarkableRepository
 	SearchableRepository[MediaFiles]

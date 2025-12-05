@@ -356,6 +356,44 @@ func (r *mediaFileRepository) Search(q string, offset int, size int, options ...
 	return res.toModels(), nil
 }
 
+// CountWithoutTrackAnalysis counts songs that don't have track analysis data (energyval tag)
+// and haven't been marked as not found, and have an ID greater than afterID (for resumption)
+func (r *mediaFileRepository) CountWithoutTrackAnalysis(afterID string) (int64, error) {
+	sel := Select("COUNT(*)").From(r.tableName).
+		Where("NOT EXISTS (SELECT 1 FROM json_tree(tags, '$.energyval') WHERE atom IS NOT NULL)").
+		Where("NOT EXISTS (SELECT 1 FROM json_tree(tags, '$.trackanalysis_notfound') WHERE atom IS NOT NULL)").
+		Where(Eq{"missing": false})
+	if afterID != "" {
+		sel = sel.Where(Gt{"id": afterID})
+	}
+	return r.count(sel)
+}
+
+// GetNextWithoutTrackAnalysis returns the next song that needs track analysis data,
+// ordered by ID, after the given afterID (for resumption).
+// Excludes songs that have already been marked as not found in the API.
+func (r *mediaFileRepository) GetNextWithoutTrackAnalysis(afterID string) (*model.MediaFile, error) {
+	sel := r.selectMediaFile().
+		Where("NOT EXISTS (SELECT 1 FROM json_tree(tags, '$.energyval') WHERE atom IS NOT NULL)").
+		Where("NOT EXISTS (SELECT 1 FROM json_tree(tags, '$.trackanalysis_notfound') WHERE atom IS NOT NULL)").
+		Where(Eq{"missing": false}).
+		OrderBy("media_file.id").
+		Limit(1)
+	if afterID != "" {
+		sel = sel.Where(Gt{"media_file.id": afterID})
+	}
+	var res dbMediaFiles
+	err := r.queryAll(sel, &res)
+	if err != nil {
+		return nil, err
+	}
+	if len(res) == 0 {
+		return nil, nil
+	}
+	mf := res.toModels()[0]
+	return &mf, nil
+}
+
 func (r *mediaFileRepository) Count(options ...rest.QueryOptions) (int64, error) {
 	return r.CountAll(r.parseRestOptions(r.ctx, options...))
 }

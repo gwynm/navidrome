@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useSelector } from 'react-redux'
-import { useNotify, useTranslate } from 'react-admin'
+import { useNotify, useTranslate, useDataProvider } from 'react-admin'
 import {
   Popover,
   CircularProgress,
@@ -13,11 +13,13 @@ import {
   Divider,
   Box,
   Typography,
+  LinearProgress,
 } from '@material-ui/core'
 import { FiActivity } from 'react-icons/fi'
 import { BiError } from 'react-icons/bi'
 import { VscSync } from 'react-icons/vsc'
 import { GiMagnifyingGlass } from 'react-icons/gi'
+import { MdMusicNote, MdPlayArrow, MdStop } from 'react-icons/md'
 import subsonic from '../subsonic'
 import { useInitialScanStatus } from './useInitialScanStatus'
 import { useInterval } from '../common'
@@ -71,11 +73,19 @@ const ActivityPanel = () => {
   const serverStart = useSelector((state) => state.activity.serverStart)
   const up = serverStart.startTime
   const scanStatus = useSelector((state) => state.activity.scanStatus)
+  const trackAnalysisStatus = useSelector(
+    (state) => state.activity.trackAnalysisStatus,
+  )
   const elapsed = useScanElapsedTime(
     scanStatus.scanning,
     scanStatus.elapsedTime,
   )
+  const trackAnalysisElapsed = useScanElapsedTime(
+    trackAnalysisStatus.running,
+    trackAnalysisStatus.elapsedTime,
+  )
   const [acknowledgedError, setAcknowledgedError] = useState(null)
+  const [trackAnalysisAvailable, setTrackAnalysisAvailable] = useState(false)
   const isErrorVisible =
     scanStatus.error && scanStatus.error !== acknowledgedError
   const classes = useStyles({
@@ -83,9 +93,22 @@ const ActivityPanel = () => {
   })
   const translate = useTranslate()
   const notify = useNotify()
+  const dataProvider = useDataProvider()
   const [anchorEl, setAnchorEl] = useState(null)
   const open = Boolean(anchorEl)
   useInitialScanStatus()
+
+  // Check if track analysis API is available
+  useEffect(() => {
+    dataProvider
+      .getTrackAnalysisStatus()
+      .then(({ data }) => {
+        setTrackAnalysisAvailable(data.available)
+      })
+      .catch(() => {
+        setTrackAnalysisAvailable(false)
+      })
+  }, [dataProvider])
 
   const handleMenuOpen = (event) => {
     if (scanStatus.error) {
@@ -96,6 +119,28 @@ const ActivityPanel = () => {
 
   const handleMenuClose = () => setAnchorEl(null)
   const triggerScan = (full) => () => subsonic.startScan({ fullScan: full })
+
+  const startTrackAnalysis = () => {
+    dataProvider
+      .startTrackAnalysisJob()
+      .then(() => {
+        notify('activity.trackAnalysisStarted', 'info')
+      })
+      .catch((err) => {
+        notify(err.message || 'Failed to start track analysis', 'error')
+      })
+  }
+
+  const stopTrackAnalysis = () => {
+    dataProvider
+      .stopTrackAnalysisJob()
+      .then(() => {
+        notify('activity.trackAnalysisStopping', 'info')
+      })
+      .catch((err) => {
+        notify(err.message || 'Failed to stop track analysis', 'error')
+      })
+  }
 
   useEffect(() => {
     if (serverStart.version && serverStart.version !== config.version) {
@@ -203,6 +248,81 @@ const ActivityPanel = () => {
               </Box>
             )}
           </CardContent>
+          {trackAnalysisAvailable && (
+            <>
+              <Divider />
+              <CardContent className={classes.cardContent}>
+                <Typography variant="subtitle2" gutterBottom>
+                  {translate('activity.trackAnalysis')}
+                </Typography>
+
+                <Box display="flex" className={classes.counterStatus}>
+                  <Box component="span" flex={2}>
+                    {translate('activity.trackAnalysisProgress')}:
+                  </Box>
+                  <Box component="span" flex={1}>
+                    {trackAnalysisStatus.processed || 0} /{' '}
+                    {trackAnalysisStatus.total || 0}
+                  </Box>
+                </Box>
+
+                {trackAnalysisStatus.running && trackAnalysisStatus.total > 0 && (
+                  <Box mt={1}>
+                    <LinearProgress
+                      variant="determinate"
+                      value={
+                        (trackAnalysisStatus.processed /
+                          trackAnalysisStatus.total) *
+                        100
+                      }
+                    />
+                  </Box>
+                )}
+
+                <Box display="flex" className={classes.counterStatus} mt={1}>
+                  <Box component="span" flex={2}>
+                    {translate('activity.trackAnalysisFetched')}:
+                  </Box>
+                  <Box component="span" flex={1}>
+                    {trackAnalysisStatus.fetched || 0}
+                  </Box>
+                </Box>
+
+                <Box display="flex" className={classes.counterStatus} mt={1}>
+                  <Box component="span" flex={2}>
+                    {translate('activity.trackAnalysisFailed')}:
+                  </Box>
+                  <Box component="span" flex={1}>
+                    {trackAnalysisStatus.failed || 0}
+                  </Box>
+                </Box>
+
+                {trackAnalysisStatus.running && (
+                  <Box display="flex" className={classes.counterStatus} mt={1}>
+                    <Box component="span" flex={2}>
+                      {translate('activity.elapsedTime')}:
+                    </Box>
+                    <Box component="span" flex={1}>
+                      {formatShortDuration(trackAnalysisElapsed)}
+                    </Box>
+                  </Box>
+                )}
+
+                {trackAnalysisStatus.error && (
+                  <Box
+                    display="flex"
+                    flexDirection="column"
+                    mt={1}
+                    className={classes.error}
+                  >
+                    <Typography variant="body2">
+                      {trackAnalysisStatus.error}
+                    </Typography>
+                  </Box>
+                )}
+              </CardContent>
+            </>
+          )}
           <Divider />
           <CardActions>
             <Tooltip title={translate('activity.quickScan')}>
@@ -221,6 +341,23 @@ const ActivityPanel = () => {
                 <GiMagnifyingGlass />
               </IconButton>
             </Tooltip>
+            {trackAnalysisAvailable && (
+              <>
+                {trackAnalysisStatus.running ? (
+                  <Tooltip title={translate('activity.stopTrackAnalysis')}>
+                    <IconButton onClick={stopTrackAnalysis}>
+                      <MdStop />
+                    </IconButton>
+                  </Tooltip>
+                ) : (
+                  <Tooltip title={translate('activity.startTrackAnalysis')}>
+                    <IconButton onClick={startTrackAnalysis}>
+                      <MdMusicNote />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </>
+            )}
           </CardActions>
         </Card>
       </Popover>

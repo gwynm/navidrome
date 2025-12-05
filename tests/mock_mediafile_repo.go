@@ -295,5 +295,49 @@ func (m *MockMediaFileRepo) FindRecentFilesByProperties(missing model.MediaFile,
 	return result, nil
 }
 
+// Track analysis job mock methods
+func (m *MockMediaFileRepo) CountWithoutTrackAnalysis(afterID string) (int64, error) {
+	if m.Err {
+		return 0, errors.New("error")
+	}
+	var count int64
+	for _, mf := range m.Data {
+		if !mf.Missing && (afterID == "" || mf.ID > afterID) {
+			// Check if energyval tag is missing and not marked as not found
+			_, hasEnergyVal := mf.Tags["energyval"]
+			_, hasNotFound := mf.Tags["trackanalysis_notfound"]
+			if !hasEnergyVal && !hasNotFound {
+				count++
+			}
+		}
+	}
+	return count, nil
+}
+
+func (m *MockMediaFileRepo) GetNextWithoutTrackAnalysis(afterID string) (*model.MediaFile, error) {
+	if m.Err {
+		return nil, errors.New("error")
+	}
+	var candidates []*model.MediaFile
+	for _, mf := range m.Data {
+		if !mf.Missing && (afterID == "" || mf.ID > afterID) {
+			// Check if energyval tag is missing and not marked as not found
+			_, hasEnergyVal := mf.Tags["energyval"]
+			_, hasNotFound := mf.Tags["trackanalysis_notfound"]
+			if !hasEnergyVal && !hasNotFound {
+				candidates = append(candidates, mf)
+			}
+		}
+	}
+	if len(candidates) == 0 {
+		return nil, nil
+	}
+	// Sort by ID and return the first
+	slices.SortFunc(candidates, func(a, b *model.MediaFile) int {
+		return cmp.Compare(a.ID, b.ID)
+	})
+	return candidates[0], nil
+}
+
 var _ model.MediaFileRepository = (*MockMediaFileRepo)(nil)
 var _ model.ResourceRepository = (*MockMediaFileRepo)(nil)

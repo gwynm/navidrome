@@ -115,6 +115,14 @@ const (
 	InsightsInitialDelay   = 30 * time.Minute
 )
 
+// Track Analysis Job
+const (
+	TrackAnalysisJobInProgress      = "TrackAnalysisJobInProgress"
+	TrackAnalysisJobLastProcessedID = "TrackAnalysisJobLastProcessedID"
+	TrackAnalysisJobStartTime       = "TrackAnalysisJobStartTime"
+	TrackAnalysisJobStats           = "TrackAnalysisJobStats"
+)
+
 const (
 	PurgeMissingNever  = "never"
 	PurgeMissingAlways = "always"

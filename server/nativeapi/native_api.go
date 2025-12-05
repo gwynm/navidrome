@@ -18,6 +18,7 @@ import (
 	"github.com/navidrome/navidrome/model"
 	"github.com/navidrome/navidrome/model/request"
 	"github.com/navidrome/navidrome/server"
+	"github.com/navidrome/navidrome/server/events"
 )
 
 type Router struct {
@@ -28,10 +29,11 @@ type Router struct {
 	insights    metrics.Insights
 	libs        core.Library
 	maintenance core.Maintenance
+	broker      events.Broker
 }
 
-func New(ds model.DataStore, share core.Share, playlists core.Playlists, insights metrics.Insights, libraryService core.Library, maintenance core.Maintenance) *Router {
-	r := &Router{ds: ds, share: share, playlists: playlists, insights: insights, libs: libraryService, maintenance: maintenance}
+func New(ds model.DataStore, share core.Share, playlists core.Playlists, insights metrics.Insights, libraryService core.Library, maintenance core.Maintenance, broker events.Broker) *Router {
+	r := &Router{ds: ds, share: share, playlists: playlists, insights: insights, libs: libraryService, maintenance: maintenance, broker: broker}
 	r.Handler = r.routes()
 	return r
 }
@@ -77,6 +79,7 @@ func (api *Router) routes() http.Handler {
 			api.addInspectRoute(r)
 			api.addConfigRoute(r)
 			api.addUserLibraryRoute(r)
+			api.addTrackAnalysisJobRoutes(r)
 			api.RX(r, "/library", api.libs.NewRepository, true)
 		})
 	})

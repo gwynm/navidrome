@@ -19,6 +19,7 @@ const RECONNECT_DELAY = 5000
 const setupHandlers = (stream, dispatchFn) => {
   stream.addEventListener('serverStart', eventHandler(dispatchFn))
   stream.addEventListener('scanStatus', throttledEventHandler(dispatchFn))
+  stream.addEventListener('trackAnalysisStatus', throttledEventHandler(dispatchFn))
   stream.addEventListener('refreshResource', eventHandler(dispatchFn))
   if (config.enableNowPlaying) {
     stream.addEventListener('nowPlayingCount', eventHandler(dispatchFn))
@@ -73,6 +74,10 @@ const startEventStreamLegacy = async (dispatchFn) => {
       newStream.addEventListener('serverStart', eventHandler(dispatchFn))
       newStream.addEventListener(
         'scanStatus',
+        throttledEventHandler(dispatchFn),
+      )
+      newStream.addEventListener(
+        'trackAnalysisStatus',
         throttledEventHandler(dispatchFn),
       )
       newStream.addEventListener('refreshResource', eventHandler(dispatchFn))

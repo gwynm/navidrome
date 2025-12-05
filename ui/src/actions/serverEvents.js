@@ -3,6 +3,7 @@ export const EVENT_SERVER_START = 'serverStart'
 export const EVENT_REFRESH_RESOURCE = 'refreshResource'
 export const EVENT_NOW_PLAYING_COUNT = 'nowPlayingCount'
 export const EVENT_STREAM_RECONNECTED = 'streamReconnected'
+export const EVENT_TRACK_ANALYSIS_STATUS = 'trackAnalysisStatus'
 
 export const processEvent = (type, data) => ({
   type,
@@ -15,6 +16,11 @@ export const scanStatusUpdate = (data) => ({
 
 export const nowPlayingCountUpdate = (data) => ({
   type: EVENT_NOW_PLAYING_COUNT,
+  data: data,
+})
+
+export const trackAnalysisStatusUpdate = (data) => ({
+  type: EVENT_TRACK_ANALYSIS_STATUS,
   data: data,
 })
 

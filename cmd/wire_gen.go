@@ -8,7 +8,6 @@ package cmd
 
 import (
 	"context"
-
 	"github.com/google/wire"
 	"github.com/navidrome/navidrome/core"
 	"github.com/navidrome/navidrome/core/agents"
@@ -30,7 +29,9 @@ import (
 	"github.com/navidrome/navidrome/server/nativeapi"
 	"github.com/navidrome/navidrome/server/public"
 	"github.com/navidrome/navidrome/server/subsonic"
+)
 
+import (
 	_ "github.com/navidrome/navidrome/adapters/taglib"
 )
 
@@ -72,7 +73,7 @@ func CreateNativeAPIRouter(ctx context.Context) *nativeapi.Router {
 	watcher := scanner.GetWatcher(dataStore, modelScanner)
 	library := core.NewLibrary(dataStore, modelScanner, watcher, broker)
 	maintenance := core.NewMaintenance(dataStore)
-	router := nativeapi.New(dataStore, share, playlists, insights, library, maintenance)
+	router := nativeapi.New(dataStore, share, playlists, insights, library, maintenance, broker)
 	return router
 }
 

@@ -4,6 +4,7 @@ import {
   EVENT_SERVER_START,
   EVENT_NOW_PLAYING_COUNT,
   EVENT_STREAM_RECONNECTED,
+  EVENT_TRACK_ANALYSIS_STATUS,
 } from '../actions'
 import config from '../config'
 
@@ -12,6 +13,16 @@ const initialState = {
     scanning: false,
     folderCount: 0,
     count: 0,
+    error: '',
+    elapsedTime: 0,
+  },
+  trackAnalysisStatus: {
+    running: false,
+    total: 0,
+    processed: 0,
+    fetched: 0,
+    failed: 0,
+    skipped: 0,
     error: '',
     elapsedTime: 0,
   },
@@ -27,6 +38,10 @@ export const activityReducer = (previousState = initialState, payload) => {
     case EVENT_SCAN_STATUS: {
       const elapsedTime = Number(data.elapsedTime) || 0
       return { ...previousState, scanStatus: { ...data, elapsedTime } }
+    }
+    case EVENT_TRACK_ANALYSIS_STATUS: {
+      const elapsedTime = Number(data.elapsedTime) || 0
+      return { ...previousState, trackAnalysisStatus: { ...data, elapsedTime } }
     }
     case EVENT_SERVER_START:
       return {
