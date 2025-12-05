@@ -130,8 +130,7 @@ FROM public.ecr.aws/docker/library/debian:bookworm-slim AS final
 LABEL maintainer="deluan@navidrome.org"
 LABEL org.opencontainers.image.source="https://github.com/navidrome/navidrome"
 
-# Install ffmpeg, mpv, and Python for Essentia audio analysis and Genius lyrics
-# Essentia manylinux wheels require glibc (Debian) and are only available for x86_64
+# Install ffmpeg, mpv, and Python for Genius lyrics
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ffmpeg \
         mpv \
@@ -140,15 +139,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python3-pip \
         ca-certificates \
     && pip3 install --break-system-packages lyricsgenius \
-    && (pip3 install --break-system-packages essentia 2>/dev/null || echo "Essentia not available for this platform - energy analysis will be disabled") \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy navidrome binary
 COPY --from=build /out/navidrome /app/
 
-# Copy Python scripts for audio analysis and lyrics fetching
-COPY scripts/essentia_analyze.py /app/scripts/
+# Copy Python scripts for lyrics fetching
 COPY scripts/genius_lyrics.py /app/scripts/
 
 VOLUME ["/data", "/music"]

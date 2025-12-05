@@ -234,6 +234,20 @@ const wrapperDataProvider = {
       data: json,
     }))
   },
+  fetchAlbumTrackData: (albumId) => {
+    return httpClient(`${REST_URL}/album/${albumId}/fetch-trackdata`, {
+      method: 'POST',
+    }).then(({ json }) => ({
+      data: json,
+    }))
+  },
+  fetchPlaylistTrackData: (playlistId) => {
+    return httpClient(`${REST_URL}/playlist/${playlistId}/fetch-trackdata`, {
+      method: 'POST',
+    }).then(({ json }) => ({
+      data: json,
+    }))
+  },
 }
 
 export default wrapperDataProvider

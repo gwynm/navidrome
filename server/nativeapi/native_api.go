@@ -13,7 +13,6 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/navidrome/navidrome/conf"
 	"github.com/navidrome/navidrome/core"
-	"github.com/navidrome/navidrome/core/audio"
 	"github.com/navidrome/navidrome/core/metrics"
 	"github.com/navidrome/navidrome/log"
 	"github.com/navidrome/navidrome/model"
@@ -29,11 +28,10 @@ type Router struct {
 	insights    metrics.Insights
 	libs        core.Library
 	maintenance core.Maintenance
-	analyzer    audio.Analyzer
 }
 
-func New(ds model.DataStore, share core.Share, playlists core.Playlists, insights metrics.Insights, libraryService core.Library, maintenance core.Maintenance, analyzer audio.Analyzer) *Router {
-	r := &Router{ds: ds, share: share, playlists: playlists, insights: insights, libs: libraryService, maintenance: maintenance, analyzer: analyzer}
+func New(ds model.DataStore, share core.Share, playlists core.Playlists, insights metrics.Insights, libraryService core.Library, maintenance core.Maintenance) *Router {
+	r := &Router{ds: ds, share: share, playlists: playlists, insights: insights, libs: libraryService, maintenance: maintenance}
 	r.Handler = r.routes()
 	return r
 }
@@ -66,9 +64,10 @@ func (api *Router) routes() http.Handler {
 		api.addPlaylistTrackRoute(r)
 		api.addSongPlaylistsRoute(r)
 		api.addSongTagRoute(r)
-		api.addSongAnalysisRoute(r)
 		api.addAlbumLyricsRoute(r)
 		api.addPlaylistLyricsRoute(r)
+		api.addAlbumTrackDataRoute(r)
+		api.addPlaylistTrackDataRoute(r)
 		api.addQueueRoute(r)
 		api.addMissingFilesRoute(r)
 		api.addKeepAliveRoute(r)

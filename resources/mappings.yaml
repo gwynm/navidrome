@@ -257,3 +257,9 @@ additional:
     aliases: [ txxx:work, tit1, work, ©wrk, wm/work ]
   energy:
     aliases: [ txxx:energy, energy, ----:com.apple.itunes:energy ]
+  energyval:
+    aliases: [ txxx:energyval, energyval, ----:com.apple.itunes:energyval ]
+  happiness:
+    aliases: [ txxx:happiness, happiness, ----:com.apple.itunes:happiness ]
+  instrumentalness:
+    aliases: [ txxx:instrumentalness, instrumentalness, ----:com.apple.itunes:instrumentalness ]
