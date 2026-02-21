@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/Masterminds/squirrel"
@@ -17,7 +18,7 @@ const annotationTable = "annotation"
 func (r sqlRepository) withAnnotation(query SelectBuilder, idField string) SelectBuilder {
 	userID := loggedUser(r.ctx).ID
 	if userID == invalidUserId {
-		return query
+		return query.Columns(fmt.Sprintf("%s.average_rating", r.tableName))
 	}
 	query = query.
 		LeftJoin("annotation on ("+
@@ -38,7 +39,22 @@ func (r sqlRepository) withAnnotation(query SelectBuilder, idField string) Selec
 		query = query.Columns("coalesce(play_count, 0) as play_count")
 	}
 
+	query = query.Columns(fmt.Sprintf("%s.average_rating", r.tableName))
+
 	return query
+}
+
+func annotationBoolFilter(field string) func(string, any) Sqlizer {
+	return func(_ string, value any) Sqlizer {
+		v, ok := value.(string)
+		if !ok {
+			return nil
+		}
+		if strings.ToLower(v) == "true" {
+			return Expr(fmt.Sprintf("COALESCE(%s, 0) > 0", field))
+		}
+		return Expr(fmt.Sprintf("COALESCE(%s, 0) = 0", field))
+	}
 }
 
 func (r sqlRepository) annId(itemID ...string) And {
@@ -50,7 +66,7 @@ func (r sqlRepository) annId(itemID ...string) And {
 	}
 }
 
-func (r sqlRepository) annUpsert(values map[string]interface{}, itemIDs ...string) error {
+func (r sqlRepository) annUpsert(values map[string]any, itemIDs ...string) error {
 	upd := Update(annotationTable).Where(r.annId(itemIDs...))
 	for f, v := range values {
 		upd = upd.Set(f, v)
@@ -74,12 +90,27 @@ func (r sqlRepository) annUpsert(values map[string]interface{}, itemIDs ...strin
 
 func (r sqlRepository) SetStar(starred bool, ids ...string) error {
 	starredAt := time.Now()
-	return r.annUpsert(map[string]interface{}{"starred": starred, "starred_at": starredAt}, ids...)
+	return r.annUpsert(map[string]any{"starred": starred, "starred_at": starredAt}, ids...)
 }
 
 func (r sqlRepository) SetRating(rating int, itemID string) error {
 	ratedAt := time.Now()
-	return r.annUpsert(map[string]interface{}{"rating": rating, "rated_at": ratedAt}, itemID)
+	err := r.annUpsert(map[string]any{"rating": rating, "rated_at": ratedAt}, itemID)
+	if err != nil {
+		return err
+	}
+	return r.updateAvgRating(itemID)
+}
+
+func (r sqlRepository) updateAvgRating(itemID string) error {
+	upd := Update(r.tableName).
+		Where(Eq{"id": itemID}).
+		Set("average_rating", Expr(
+			"coalesce((select round(avg(rating), 2) from annotation where item_id = ? and item_type = ? and rating > 0), 0)",
+			itemID, r.tableName,
+		))
+	_, err := r.executeSQL(upd)
+	return err
 }
 
 func (r sqlRepository) IncPlayCount(itemID string, ts time.Time) error {
@@ -90,7 +121,7 @@ func (r sqlRepository) IncPlayCount(itemID string, ts time.Time) error {
 
 	if c == 0 || errors.Is(err, sql.ErrNoRows) {
 		userID := loggedUser(r.ctx).ID
-		values := map[string]interface{}{}
+		values := map[string]any{}
 		values["user_id"] = userID
 		values["item_type"] = r.tableName
 		values["item_id"] = itemID

@@ -2,10 +2,10 @@ FROM --platform=$BUILDPLATFORM ghcr.io/crazy-max/osxcross:14.5-debian AS osxcros
 
 ########################################################################################################################
 ### Build xx (original image: tonistiigi/xx)
-FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/alpine:3.19 AS xx-build
+FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/alpine:3.20 AS xx-build
 
-# v1.5.0
-ENV XX_VERSION=b4e4c451c778822e6742bfc9d9a91d7c7d885c8a
+# v1.9.0
+ENV XX_VERSION=a5592eab7a57895e8d385394ff12241bc65ecd50
 
 RUN apk add -U --no-cache git
 RUN git clone https://github.com/tonistiigi/xx && \
@@ -26,9 +26,9 @@ COPY --from=xx-build /out/ /usr/bin/
 
 ########################################################################################################################
 ### Get TagLib
-FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/alpine:3.19 AS taglib-build
+FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/alpine:3.20 AS taglib-build
 ARG TARGETPLATFORM
-ARG CROSS_TAGLIB_VERSION=2.1.1-1
+ARG CROSS_TAGLIB_VERSION=2.1.1-2
 ENV CROSS_TAGLIB_RELEASES_URL=https://github.com/navidrome/cross-taglib/releases/download/v${CROSS_TAGLIB_VERSION}/
 
 # wget in busybox can't follow redirects
@@ -49,9 +49,6 @@ EOT
 FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/node:lts-alpine AS ui
 WORKDIR /app
 
-# Install build dependencies for native modules (required by git dependencies that use node-gyp)
-RUN apk add --no-cache python3 make g++
-
 # Install node dependencies
 COPY ui/package.json ui/package-lock.json ./
 COPY ui/bin/ ./bin/
@@ -66,7 +63,7 @@ COPY --from=ui /build /build
 
 ########################################################################################################################
 ### Build Navidrome binary
-FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/golang:1.25-bookworm AS base
+FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/golang:1.25-trixie AS base
 RUN apt-get update && apt-get install -y clang lld
 COPY --from=xx / /
 WORKDIR /workspace
@@ -97,6 +94,7 @@ RUN --mount=type=bind,source=. \
     # Setup CGO cross-compilation environment
     xx-go --wrap
     export CGO_ENABLED=1
+    export CGO_CFLAGS_ALLOW="--define-prefix"
     export PKG_CONFIG_PATH=/taglib/lib/pkgconfig
     cat $(go env GOENV)
 
@@ -125,22 +123,13 @@ COPY --from=build /out /
 
 ########################################################################################################################
 ### Build Final Image
-# Using Debian instead of Alpine for glibc compatibility (required for Essentia audio analysis)
-FROM public.ecr.aws/docker/library/debian:bookworm-slim AS final
+FROM public.ecr.aws/docker/library/alpine:3.20 AS final
 LABEL maintainer="deluan@navidrome.org"
 LABEL org.opencontainers.image.source="https://github.com/navidrome/navidrome"
 
 # Install ffmpeg, mpv, and Python for Genius lyrics
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        ffmpeg \
-        mpv \
-        sqlite3 \
-        python3 \
-        python3-pip \
-        ca-certificates \
-    && pip3 install --break-system-packages lyricsgenius \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add -U --no-cache ffmpeg mpv sqlite python3 py3-pip \
+    && pip3 install --break-system-packages lyricsgenius
 
 # Copy navidrome binary
 COPY --from=build /out/navidrome /app/

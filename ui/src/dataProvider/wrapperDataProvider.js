@@ -234,39 +234,6 @@ const wrapperDataProvider = {
       data: json,
     }))
   },
-  fetchAlbumTrackData: (albumId) => {
-    return httpClient(`${REST_URL}/album/${albumId}/fetch-trackdata`, {
-      method: 'POST',
-    }).then(({ json }) => ({
-      data: json,
-    }))
-  },
-  fetchPlaylistTrackData: (playlistId) => {
-    return httpClient(`${REST_URL}/playlist/${playlistId}/fetch-trackdata`, {
-      method: 'POST',
-    }).then(({ json }) => ({
-      data: json,
-    }))
-  },
-  getTrackAnalysisStatus: () => {
-    return httpClient(`${REST_URL}/trackanalysis/status`).then(({ json }) => ({
-      data: json,
-    }))
-  },
-  startTrackAnalysisJob: () => {
-    return httpClient(`${REST_URL}/trackanalysis/start`, {
-      method: 'POST',
-    }).then(({ json }) => ({
-      data: json,
-    }))
-  },
-  stopTrackAnalysisJob: () => {
-    return httpClient(`${REST_URL}/trackanalysis/stop`, {
-      method: 'POST',
-    }).then(({ json }) => ({
-      data: json,
-    }))
-  },
 }
 
 export default wrapperDataProvider

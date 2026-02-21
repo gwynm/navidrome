@@ -1,8 +1,0 @@
-{
-  "name": "High Energy",
-  "comment": "Tracks with Energy=high",
-  "all": [{ "is": { "energy": "high" } }],
-  "sort": "lastPlayed",
-  "order": "desc",
-  "limit": 1000
-}

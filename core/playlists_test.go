@@ -1,4 +1,4 @@
-package core
+package core_test
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/navidrome/navidrome/conf"
 	"github.com/navidrome/navidrome/conf/configtest"
+	"github.com/navidrome/navidrome/core"
 	"github.com/navidrome/navidrome/model"
 	"github.com/navidrome/navidrome/model/criteria"
 	"github.com/navidrome/navidrome/model/request"
@@ -20,7 +21,7 @@ import (
 
 var _ = Describe("Playlists", func() {
 	var ds *tests.MockDataStore
-	var ps Playlists
+	var ps core.Playlists
 	var mockPlsRepo mockedPlaylistRepo
 	var mockLibRepo *tests.MockLibraryRepo
 	ctx := context.Background()
@@ -33,16 +34,16 @@ var _ = Describe("Playlists", func() {
 			MockedLibrary:  mockLibRepo,
 		}
 		ctx = request.WithUser(ctx, model.User{ID: "123"})
-		// Path should be libPath, but we want to match the root folder referenced in the m3u, which is `/`
-		mockLibRepo.SetData([]model.Library{{ID: 1, Path: "/"}})
 	})
 
 	Describe("ImportFile", func() {
 		var folder *model.Folder
 		BeforeEach(func() {
-			ps = NewPlaylists(ds)
+			ps = core.NewPlaylists(ds)
 			ds.MockedMediaFile = &mockedMediaFileRepo{}
 			libPath, _ := os.Getwd()
+			// Set up library with the actual library path that matches the folder
+			mockLibRepo.SetData([]model.Library{{ID: 1, Path: libPath}})
 			folder = &model.Folder{
 				ID:          "1",
 				LibraryID:   1,
@@ -111,6 +112,294 @@ var _ = Describe("Playlists", func() {
 				_, err := ps.ImportFile(ctx, folder, "invalid_json.nsp")
 				Expect(err.Error()).To(ContainSubstring("line 19, column 1: invalid character '\\n'"))
 			})
+			It("parses NSP with public: true and creates public playlist", func() {
+				pls, err := ps.ImportFile(ctx, folder, "public_playlist.nsp")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pls.Name).To(Equal("Public Playlist"))
+				Expect(pls.Public).To(BeTrue())
+			})
+			It("parses NSP with public: false and creates private playlist", func() {
+				pls, err := ps.ImportFile(ctx, folder, "private_playlist.nsp")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pls.Name).To(Equal("Private Playlist"))
+				Expect(pls.Public).To(BeFalse())
+			})
+			It("uses server default when public field is absent", func() {
+				DeferCleanup(configtest.SetupConfig())
+				conf.Server.DefaultPlaylistPublicVisibility = true
+
+				pls, err := ps.ImportFile(ctx, folder, "recently_played.nsp")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pls.Name).To(Equal("Recently Played"))
+				Expect(pls.Public).To(BeTrue()) // Should be true since server default is true
+			})
+		})
+
+		DescribeTable("Playlist filename Unicode normalization (regression fix-playlist-filename-normalization)",
+			func(storedForm, filesystemForm string) {
+				// Use Polish characters that decompose: ó (U+00F3) -> o + combining acute (U+006F + U+0301)
+				plsNameNFC := "Piosenki_Polskie_zółć" // NFC form (composed)
+				plsNameNFD := norm.NFD.String(plsNameNFC)
+				Expect(plsNameNFD).ToNot(Equal(plsNameNFC)) // Verify they differ
+
+				nameByForm := map[string]string{"NFC": plsNameNFC, "NFD": plsNameNFD}
+				storedName := nameByForm[storedForm]
+				filesystemName := nameByForm[filesystemForm]
+
+				tmpDir := GinkgoT().TempDir()
+				mockLibRepo.SetData([]model.Library{{ID: 1, Path: tmpDir}})
+				ds.MockedMediaFile = &mockedMediaFileFromListRepo{data: []string{}}
+				ps = core.NewPlaylists(ds)
+
+				// Create the playlist file on disk with the filesystem's normalization form
+				plsFile := tmpDir + "/" + filesystemName + ".m3u"
+				Expect(os.WriteFile(plsFile, []byte("#PLAYLIST:Test\n"), 0600)).To(Succeed())
+
+				// Pre-populate mock repo with the stored normalization form
+				storedPath := tmpDir + "/" + storedName + ".m3u"
+				existingPls := &model.Playlist{
+					ID:   "existing-id",
+					Name: "Existing Playlist",
+					Path: storedPath,
+					Sync: true,
+				}
+				mockPlsRepo.data = map[string]*model.Playlist{storedPath: existingPls}
+
+				// Import using the filesystem's normalization form
+				plsFolder := &model.Folder{
+					ID:          "1",
+					LibraryID:   1,
+					LibraryPath: tmpDir,
+					Path:        "",
+					Name:        "",
+				}
+				pls, err := ps.ImportFile(ctx, plsFolder, filesystemName+".m3u")
+				Expect(err).ToNot(HaveOccurred())
+
+				// Should update existing playlist, not create new one
+				Expect(pls.ID).To(Equal("existing-id"))
+				Expect(pls.Name).To(Equal("Existing Playlist"))
+			},
+			Entry("finds NFD-stored playlist when filesystem provides NFC path", "NFD", "NFC"),
+			Entry("finds NFC-stored playlist when filesystem provides NFD path", "NFC", "NFD"),
+		)
+
+		Describe("Cross-library relative paths", func() {
+			var tmpDir, plsDir, songsDir string
+
+			BeforeEach(func() {
+				// Create temp directory structure
+				tmpDir = GinkgoT().TempDir()
+				plsDir = tmpDir + "/playlists"
+				songsDir = tmpDir + "/songs"
+				Expect(os.Mkdir(plsDir, 0755)).To(Succeed())
+				Expect(os.Mkdir(songsDir, 0755)).To(Succeed())
+
+				// Setup two different libraries with paths matching our temp structure
+				mockLibRepo.SetData([]model.Library{
+					{ID: 1, Path: songsDir},
+					{ID: 2, Path: plsDir},
+				})
+
+				// Create a mock media file repository that returns files for both libraries
+				// Note: The paths are relative to their respective library roots
+				ds.MockedMediaFile = &mockedMediaFileFromListRepo{
+					data: []string{
+						"abc.mp3", // This is songs/abc.mp3 relative to songsDir
+						"def.mp3", // This is playlists/def.mp3 relative to plsDir
+					},
+				}
+				ps = core.NewPlaylists(ds)
+			})
+
+			It("handles relative paths that reference files in other libraries", func() {
+				// Create a temporary playlist file with relative path
+				plsContent := "#PLAYLIST:Cross Library Test\n../songs/abc.mp3\ndef.mp3"
+				plsFile := plsDir + "/test.m3u"
+				Expect(os.WriteFile(plsFile, []byte(plsContent), 0600)).To(Succeed())
+
+				// Playlist is in the Playlists library folder
+				// Important: Path should be relative to LibraryPath, and Name is the folder name
+				plsFolder := &model.Folder{
+					ID:          "2",
+					LibraryID:   2,
+					LibraryPath: plsDir,
+					Path:        "",
+					Name:        "",
+				}
+
+				pls, err := ps.ImportFile(ctx, plsFolder, "test.m3u")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pls.Tracks).To(HaveLen(2))
+				Expect(pls.Tracks[0].Path).To(Equal("abc.mp3")) // From songsDir library
+				Expect(pls.Tracks[1].Path).To(Equal("def.mp3")) // From plsDir library
+			})
+
+			It("ignores paths that point outside all libraries", func() {
+				// Create a temporary playlist file with path outside libraries
+				plsContent := "#PLAYLIST:Outside Test\n../../outside.mp3\nabc.mp3"
+				plsFile := plsDir + "/test.m3u"
+				Expect(os.WriteFile(plsFile, []byte(plsContent), 0600)).To(Succeed())
+
+				plsFolder := &model.Folder{
+					ID:          "2",
+					LibraryID:   2,
+					LibraryPath: plsDir,
+					Path:        "",
+					Name:        "",
+				}
+
+				pls, err := ps.ImportFile(ctx, plsFolder, "test.m3u")
+				Expect(err).ToNot(HaveOccurred())
+				// Should only find abc.mp3, not outside.mp3
+				Expect(pls.Tracks).To(HaveLen(1))
+				Expect(pls.Tracks[0].Path).To(Equal("abc.mp3"))
+			})
+
+			It("handles relative paths with multiple '../' components", func() {
+				// Create a nested structure: tmpDir/playlists/subfolder/test.m3u
+				subFolder := plsDir + "/subfolder"
+				Expect(os.Mkdir(subFolder, 0755)).To(Succeed())
+
+				// Create the media file in the subfolder directory
+				// The mock will return it as "def.mp3" relative to plsDir
+				ds.MockedMediaFile = &mockedMediaFileFromListRepo{
+					data: []string{
+						"abc.mp3", // From songsDir library
+						"def.mp3", // From plsDir library root
+					},
+				}
+
+				// From subfolder, ../../songs/abc.mp3 should resolve to songs library
+				// ../def.mp3 should resolve to plsDir/def.mp3
+				plsContent := "#PLAYLIST:Nested Test\n../../songs/abc.mp3\n../def.mp3"
+				plsFile := subFolder + "/test.m3u"
+				Expect(os.WriteFile(plsFile, []byte(plsContent), 0600)).To(Succeed())
+
+				// The folder: AbsolutePath = LibraryPath + Path + Name
+				// So for /playlists/subfolder: LibraryPath=/playlists, Path="", Name="subfolder"
+				plsFolder := &model.Folder{
+					ID:          "2",
+					LibraryID:   2,
+					LibraryPath: plsDir,
+					Path:        "",          // Empty because subfolder is directly under library root
+					Name:        "subfolder", // The folder name
+				}
+
+				pls, err := ps.ImportFile(ctx, plsFolder, "test.m3u")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pls.Tracks).To(HaveLen(2))
+				Expect(pls.Tracks[0].Path).To(Equal("abc.mp3")) // From songsDir library
+				Expect(pls.Tracks[1].Path).To(Equal("def.mp3")) // From plsDir library root
+			})
+
+			It("correctly resolves libraries when one path is a prefix of another", func() {
+				// This tests the bug where /music would match before /music-classical
+				// Create temp directory structure with prefix conflict
+				tmpDir := GinkgoT().TempDir()
+				musicDir := tmpDir + "/music"
+				musicClassicalDir := tmpDir + "/music-classical"
+				Expect(os.Mkdir(musicDir, 0755)).To(Succeed())
+				Expect(os.Mkdir(musicClassicalDir, 0755)).To(Succeed())
+
+				// Setup two libraries where one is a prefix of the other
+				mockLibRepo.SetData([]model.Library{
+					{ID: 1, Path: musicDir},          // /tmp/xxx/music
+					{ID: 2, Path: musicClassicalDir}, // /tmp/xxx/music-classical
+				})
+
+				// Mock will return tracks from both libraries
+				ds.MockedMediaFile = &mockedMediaFileFromListRepo{
+					data: []string{
+						"rock.mp3", // From music library
+						"bach.mp3", // From music-classical library
+					},
+				}
+
+				// Create playlist in music library that references music-classical
+				plsContent := "#PLAYLIST:Cross Prefix Test\nrock.mp3\n../music-classical/bach.mp3"
+				plsFile := musicDir + "/test.m3u"
+				Expect(os.WriteFile(plsFile, []byte(plsContent), 0600)).To(Succeed())
+
+				plsFolder := &model.Folder{
+					ID:          "1",
+					LibraryID:   1,
+					LibraryPath: musicDir,
+					Path:        "",
+					Name:        "",
+				}
+
+				pls, err := ps.ImportFile(ctx, plsFolder, "test.m3u")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pls.Tracks).To(HaveLen(2))
+				Expect(pls.Tracks[0].Path).To(Equal("rock.mp3")) // From music library
+				Expect(pls.Tracks[1].Path).To(Equal("bach.mp3")) // From music-classical library (not music!)
+			})
+
+			It("correctly handles identical relative paths from different libraries", func() {
+				// This tests the bug where two libraries have files at the same relative path
+				// and only one appears in the playlist
+				tmpDir := GinkgoT().TempDir()
+				musicDir := tmpDir + "/music"
+				classicalDir := tmpDir + "/classical"
+				Expect(os.Mkdir(musicDir, 0755)).To(Succeed())
+				Expect(os.Mkdir(classicalDir, 0755)).To(Succeed())
+				Expect(os.MkdirAll(musicDir+"/album", 0755)).To(Succeed())
+				Expect(os.MkdirAll(classicalDir+"/album", 0755)).To(Succeed())
+				// Create placeholder files so paths resolve correctly
+				Expect(os.WriteFile(musicDir+"/album/track.mp3", []byte{}, 0600)).To(Succeed())
+				Expect(os.WriteFile(classicalDir+"/album/track.mp3", []byte{}, 0600)).To(Succeed())
+
+				// Both libraries have a file at "album/track.mp3"
+				mockLibRepo.SetData([]model.Library{
+					{ID: 1, Path: musicDir},
+					{ID: 2, Path: classicalDir},
+				})
+
+				// Mock returns files with same relative path but different IDs and library IDs
+				// Keys use the library-qualified format: "libraryID:path"
+				ds.MockedMediaFile = &mockedMediaFileRepo{
+					data: map[string]model.MediaFile{
+						"1:album/track.mp3": {ID: "music-track", Path: "album/track.mp3", LibraryID: 1, Title: "Rock Song"},
+						"2:album/track.mp3": {ID: "classical-track", Path: "album/track.mp3", LibraryID: 2, Title: "Classical Piece"},
+					},
+				}
+				// Recreate playlists service to pick up new mock
+				ps = core.NewPlaylists(ds)
+
+				// Create playlist in music library that references both tracks
+				plsContent := "#PLAYLIST:Same Path Test\nalbum/track.mp3\n../classical/album/track.mp3"
+				plsFile := musicDir + "/test.m3u"
+				Expect(os.WriteFile(plsFile, []byte(plsContent), 0600)).To(Succeed())
+
+				plsFolder := &model.Folder{
+					ID:          "1",
+					LibraryID:   1,
+					LibraryPath: musicDir,
+					Path:        "",
+					Name:        "",
+				}
+
+				pls, err := ps.ImportFile(ctx, plsFolder, "test.m3u")
+				Expect(err).ToNot(HaveOccurred())
+
+				// Should have BOTH tracks, not just one
+				Expect(pls.Tracks).To(HaveLen(2), "Playlist should contain both tracks with same relative path")
+
+				// Verify we got tracks from DIFFERENT libraries (the key fix!)
+				// Collect the library IDs
+				libIDs := make(map[int]bool)
+				for _, track := range pls.Tracks {
+					libIDs[track.LibraryID] = true
+				}
+				Expect(libIDs).To(HaveLen(2), "Tracks should come from two different libraries")
+				Expect(libIDs[1]).To(BeTrue(), "Should have track from library 1")
+				Expect(libIDs[2]).To(BeTrue(), "Should have track from library 2")
+
+				// Both tracks should have the same relative path
+				Expect(pls.Tracks[0].Path).To(Equal("album/track.mp3"))
+				Expect(pls.Tracks[1].Path).To(Equal("album/track.mp3"))
+			})
 		})
 	})
 
@@ -119,7 +408,7 @@ var _ = Describe("Playlists", func() {
 		BeforeEach(func() {
 			repo = &mockedMediaFileFromListRepo{}
 			ds.MockedMediaFile = repo
-			ps = NewPlaylists(ds)
+			ps = core.NewPlaylists(ds)
 			mockLibRepo.SetData([]model.Library{{ID: 1, Path: "/music"}, {ID: 2, Path: "/new"}})
 			ctx = request.WithUser(ctx, model.User{ID: "123"})
 		})
@@ -206,53 +495,79 @@ var _ = Describe("Playlists", func() {
 			Expect(pls.Tracks[0].Path).To(Equal("abc/tEsT1.Mp3"))
 		})
 
-		It("handles Unicode normalization when comparing paths", func() {
-			// Test case for Apple Music playlists that use NFC encoding vs macOS filesystem NFD
-			// The character "è" can be represented as NFC (single codepoint) or NFD (e + combining accent)
-
-			const pathWithAccents = "artist/Michèle Desrosiers/album/Noël.m4a"
-
-			// Simulate a database entry with NFD encoding (as stored by macOS filesystem)
-			nfdPath := norm.NFD.String(pathWithAccents)
-			repo.data = []string{nfdPath}
-
-			// Simulate an Apple Music M3U playlist entry with NFC encoding
-			nfcPath := norm.NFC.String("/music/" + pathWithAccents)
-			m3u := strings.Join([]string{
-				nfcPath,
-			}, "\n")
+		// Fullwidth characters (e.g., ＡＢＣＤ) are not handled by SQLite's NOCASE collation,
+		// so we need exact matching for non-ASCII characters.
+		It("matches fullwidth characters exactly (SQLite NOCASE limitation)", func() {
+			// Fullwidth uppercase ＡＣＲＯＳＳ (U+FF21, U+FF23, U+FF32, U+FF2F, U+FF33, U+FF33)
+			repo.data = []string{
+				"plex/02 - ＡＣＲＯＳＳ.flac",
+			}
+			m3u := "/music/plex/02 - ＡＣＲＯＳＳ.flac\n"
 			f := strings.NewReader(m3u)
-
 			pls, err := ps.ImportM3U(ctx, f)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(pls.Tracks).To(HaveLen(1), "Should find the track despite Unicode normalization differences")
-			Expect(pls.Tracks[0].Path).To(Equal(nfdPath))
-		})
-	})
-
-	Describe("normalizePathForComparison", func() {
-		It("normalizes Unicode characters to NFC form and converts to lowercase", func() {
-			// Test with NFD (decomposed) input - as would come from macOS filesystem
-			nfdPath := norm.NFD.String("Michèle") // Explicitly convert to NFD form
-			normalized := normalizePathForComparison(nfdPath)
-			Expect(normalized).To(Equal("michèle"))
-
-			// Test with NFC (composed) input - as would come from Apple Music M3U
-			nfcPath := "Michèle" // This might be in NFC form
-			normalizedNfc := normalizePathForComparison(nfcPath)
-
-			// Ensure the two paths are not equal in their original forms
-			Expect(nfdPath).ToNot(Equal(nfcPath))
-
-			// Both should normalize to the same result
-			Expect(normalized).To(Equal(normalizedNfc))
+			Expect(pls.Tracks).To(HaveLen(1))
+			Expect(pls.Tracks[0].Path).To(Equal("plex/02 - ＡＣＲＯＳＳ.flac"))
 		})
 
-		It("handles paths with mixed case and Unicode characters", func() {
-			path := "Artist/Noël Coward/Album/Song.mp3"
-			normalized := normalizePathForComparison(path)
-			Expect(normalized).To(Equal("artist/noël coward/album/song.mp3"))
-		})
+		// Unicode normalization tests: NFC (composed) vs NFD (decomposed) forms
+		// macOS stores paths in NFD, Linux/Windows use NFC. Playlists may use either form.
+		DescribeTable("matches paths across Unicode NFC/NFD normalization",
+			func(description, pathNFC string, dbForm, playlistForm norm.Form) {
+				pathNFD := norm.NFD.String(pathNFC)
+				Expect(pathNFD).ToNot(Equal(pathNFC), "test path should have decomposable characters")
+
+				// Set up DB with specified normalization form
+				var dbPath string
+				if dbForm == norm.NFC {
+					dbPath = pathNFC
+				} else {
+					dbPath = pathNFD
+				}
+				repo.data = []string{dbPath}
+
+				// Set up playlist with specified normalization form
+				var playlistPath string
+				if playlistForm == norm.NFC {
+					playlistPath = pathNFC
+				} else {
+					playlistPath = pathNFD
+				}
+				m3u := "/music/" + playlistPath + "\n"
+				f := strings.NewReader(m3u)
+
+				pls, err := ps.ImportM3U(ctx, f)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pls.Tracks).To(HaveLen(1))
+				Expect(pls.Tracks[0].Path).To(Equal(dbPath))
+			},
+			// French: è (U+00E8) decomposes to e + combining grave (U+0065 + U+0300)
+			Entry("French diacritics - DB:NFD, playlist:NFC",
+				"macOS DB with Apple Music playlist",
+				"artist/Michèle/song.mp3", norm.NFD, norm.NFC),
+
+			// Japanese Katakana: ド (U+30C9) decomposes to ト (U+30C8) + combining dakuten (U+3099)
+			Entry("Japanese Katakana with dakuten - DB:NFC, playlist:NFC (#4884)",
+				"Linux/Windows DB with NFC playlist",
+				"artist/\u30a2\u30a4\u30c9\u30eb/\u30c9\u30ea\u30fc\u30e0\u30bd\u30f3\u30b0.mp3", norm.NFC, norm.NFC),
+			Entry("Japanese Katakana with dakuten - DB:NFD, playlist:NFC (#4884)",
+				"macOS DB with NFC playlist",
+				"artist/\u30a2\u30a4\u30c9\u30eb/\u30c9\u30ea\u30fc\u30e0\u30bd\u30f3\u30b0.mp3", norm.NFD, norm.NFC),
+
+			// Cyrillic: й (U+0439) decomposes to и (U+0438) + combining breve (U+0306)
+			Entry("Cyrillic characters - DB:NFD, playlist:NFC (#4791)",
+				"macOS DB with NFC playlist",
+				"Жуки/Батарейка/01 - Разлюбила.mp3", norm.NFD, norm.NFC),
+
+			// Polish: ó (U+00F3) decomposes to o + combining acute (U+0301)
+			Entry("Polish diacritics - DB:NFD, playlist:NFC (#4663)",
+				"macOS DB with NFC playlist",
+				"Zespół/Człowiek/Piosenka o miłości.mp3", norm.NFD, norm.NFC),
+			Entry("Polish diacritics - DB:NFC, playlist:NFD",
+				"Linux/Windows DB with macOS-exported playlist",
+				"Zespół/Człowiek/Piosenka o miłości.mp3", norm.NFC, norm.NFD),
+		)
+
 	})
 
 	Describe("InPlaylistsPath", func() {
@@ -269,27 +584,27 @@ var _ = Describe("Playlists", func() {
 
 		It("returns true if PlaylistsPath is empty", func() {
 			conf.Server.PlaylistsPath = ""
-			Expect(InPlaylistsPath(folder)).To(BeTrue())
+			Expect(core.InPlaylistsPath(folder)).To(BeTrue())
 		})
 
 		It("returns true if PlaylistsPath is any (**/**)", func() {
 			conf.Server.PlaylistsPath = "**/**"
-			Expect(InPlaylistsPath(folder)).To(BeTrue())
+			Expect(core.InPlaylistsPath(folder)).To(BeTrue())
 		})
 
 		It("returns true if folder is in PlaylistsPath", func() {
 			conf.Server.PlaylistsPath = "other/**:playlists/**"
-			Expect(InPlaylistsPath(folder)).To(BeTrue())
+			Expect(core.InPlaylistsPath(folder)).To(BeTrue())
 		})
 
 		It("returns false if folder is not in PlaylistsPath", func() {
 			conf.Server.PlaylistsPath = "other"
-			Expect(InPlaylistsPath(folder)).To(BeFalse())
+			Expect(core.InPlaylistsPath(folder)).To(BeFalse())
 		})
 
 		It("returns true if for a playlist in root of MusicFolder if PlaylistsPath is '.'", func() {
 			conf.Server.PlaylistsPath = "."
-			Expect(InPlaylistsPath(folder)).To(BeFalse())
+			Expect(core.InPlaylistsPath(folder)).To(BeFalse())
 
 			folder2 := model.Folder{
 				LibraryPath: "/music",
@@ -297,22 +612,47 @@ var _ = Describe("Playlists", func() {
 				Name:        ".",
 			}
 
-			Expect(InPlaylistsPath(folder2)).To(BeTrue())
+			Expect(core.InPlaylistsPath(folder2)).To(BeTrue())
 		})
 	})
 })
 
-// mockedMediaFileRepo's FindByPaths method returns a list of MediaFiles with the same paths as the input
+// mockedMediaFileRepo's FindByPaths method returns MediaFiles for the given paths.
+// If data map is provided, looks up files by key; otherwise creates them from paths.
 type mockedMediaFileRepo struct {
 	model.MediaFileRepository
+	data map[string]model.MediaFile
 }
 
 func (r *mockedMediaFileRepo) FindByPaths(paths []string) (model.MediaFiles, error) {
 	var mfs model.MediaFiles
+
+	// If data map provided, look up files
+	if r.data != nil {
+		for _, path := range paths {
+			if mf, ok := r.data[path]; ok {
+				mfs = append(mfs, mf)
+			}
+		}
+		return mfs, nil
+	}
+
+	// Otherwise, create MediaFiles from paths
 	for idx, path := range paths {
+		// Strip library qualifier if present (format: "libraryID:path")
+		actualPath := path
+		libraryID := 1
+		if parts := strings.SplitN(path, ":", 2); len(parts) == 2 {
+			if id, err := strconv.Atoi(parts[0]); err == nil {
+				libraryID = id
+				actualPath = parts[1]
+			}
+		}
+
 		mfs = append(mfs, model.MediaFile{
-			ID:   strconv.Itoa(idx),
-			Path: path,
+			ID:        strconv.Itoa(idx),
+			Path:      actualPath,
+			LibraryID: libraryID,
 		})
 	}
 	return mfs, nil
@@ -324,23 +664,48 @@ type mockedMediaFileFromListRepo struct {
 	data []string
 }
 
-func (r *mockedMediaFileFromListRepo) FindByPaths([]string) (model.MediaFiles, error) {
+func (r *mockedMediaFileFromListRepo) FindByPaths(paths []string) (model.MediaFiles, error) {
 	var mfs model.MediaFiles
-	for idx, path := range r.data {
-		mfs = append(mfs, model.MediaFile{
-			ID:   strconv.Itoa(idx),
-			Path: path,
-		})
+
+	for idx, dataPath := range r.data {
+		for _, requestPath := range paths {
+			// Strip library qualifier if present (format: "libraryID:path")
+			actualPath := requestPath
+			libraryID := 1
+			if parts := strings.SplitN(requestPath, ":", 2); len(parts) == 2 {
+				if id, err := strconv.Atoi(parts[0]); err == nil {
+					libraryID = id
+					actualPath = parts[1]
+				}
+			}
+
+			// Case-insensitive comparison (like SQL's "collate nocase"), but with no
+			// implicit Unicode normalization (SQLite does not normalize NFC/NFD).
+			if strings.EqualFold(actualPath, dataPath) {
+				mfs = append(mfs, model.MediaFile{
+					ID:        strconv.Itoa(idx),
+					Path:      dataPath, // Return original path from DB
+					LibraryID: libraryID,
+				})
+				break
+			}
+		}
 	}
 	return mfs, nil
 }
 
 type mockedPlaylistRepo struct {
 	last *model.Playlist
+	data map[string]*model.Playlist // keyed by path
 	model.PlaylistRepository
 }
 
-func (r *mockedPlaylistRepo) FindByPath(string) (*model.Playlist, error) {
+func (r *mockedPlaylistRepo) FindByPath(path string) (*model.Playlist, error) {
+	if r.data != nil {
+		if pls, ok := r.data[path]; ok {
+			return pls, nil
+		}
+	}
 	return nil, model.ErrNotFound
 }
 

@@ -56,6 +56,8 @@ const (
 
 	ServerReadHeaderTimeout = 3 * time.Second
 
+	DefaultInfoLanguage = "en"
+
 	ArtistInfoTimeToLive      = 24 * time.Hour
 	AlbumInfoTimeToLive       = 7 * 24 * time.Hour
 	UpdateLastAccessFrequency = time.Minute
@@ -71,6 +73,10 @@ const (
 	DefaultUIVolume      = 100
 
 	DefaultHttpClientTimeOut = 10 * time.Second
+
+	DefaultListenBrainzBaseURL         = "https://api.listenbrainz.org/1/"
+	DefaultListenBrainzArtistAlgorithm = "session_based_days_9000_session_300_contribution_5_threshold_15_limit_50_skip_30"
+	DefaultListenBrainzTrackAlgorithm  = "session_based_days_9000_session_300_contribution_5_threshold_15_limit_50_skip_30"
 
 	DefaultScannerExtractor = "taglib"
 	DefaultWatcherWait      = 5 * time.Second
@@ -115,14 +121,6 @@ const (
 	InsightsInitialDelay   = 30 * time.Minute
 )
 
-// Track Analysis Job
-const (
-	TrackAnalysisJobInProgress      = "TrackAnalysisJobInProgress"
-	TrackAnalysisJobLastProcessedID = "TrackAnalysisJobLastProcessedID"
-	TrackAnalysisJobStartTime       = "TrackAnalysisJobStartTime"
-	TrackAnalysisJobStats           = "TrackAnalysisJobStats"
-)
-
 const (
 	PurgeMissingNever  = "never"
 	PurgeMissingAlways = "always"
@@ -157,6 +155,8 @@ var (
 		},
 	}
 )
+
+var HTTPUserAgent = "Navidrome" + "/" + Version
 
 var (
 	VariousArtists = "Various Artists"

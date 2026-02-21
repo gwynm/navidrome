@@ -76,6 +76,10 @@ func (m *MockMediaFileRepo) GetWithParticipants(id string) (*model.MediaFile, er
 	return nil, model.ErrNotFound
 }
 
+func (m *MockMediaFileRepo) GetAllByTags(_ model.TagName, _ []string, options ...model.QueryOptions) (model.MediaFiles, error) {
+	return m.GetAll(options...)
+}
+
 func (m *MockMediaFileRepo) GetAll(qo ...model.QueryOptions) (model.MediaFiles, error) {
 	if len(qo) > 0 {
 		m.Options = qo[0]
@@ -214,7 +218,7 @@ func (m *MockMediaFileRepo) Count(...rest.QueryOptions) (int64, error) {
 	return m.CountAll()
 }
 
-func (m *MockMediaFileRepo) Read(id string) (interface{}, error) {
+func (m *MockMediaFileRepo) Read(id string) (any, error) {
 	mf, err := m.Get(id)
 	if errors.Is(err, model.ErrNotFound) {
 		return nil, rest.ErrNotFound
@@ -222,7 +226,7 @@ func (m *MockMediaFileRepo) Read(id string) (interface{}, error) {
 	return mf, err
 }
 
-func (m *MockMediaFileRepo) ReadAll(...rest.QueryOptions) (interface{}, error) {
+func (m *MockMediaFileRepo) ReadAll(...rest.QueryOptions) (any, error) {
 	return m.GetAll()
 }
 
@@ -230,7 +234,7 @@ func (m *MockMediaFileRepo) EntityName() string {
 	return "mediafile"
 }
 
-func (m *MockMediaFileRepo) NewInstance() interface{} {
+func (m *MockMediaFileRepo) NewInstance() any {
 	return &model.MediaFile{}
 }
 
@@ -293,50 +297,6 @@ func (m *MockMediaFileRepo) FindRecentFilesByProperties(missing model.MediaFile,
 		}
 	}
 	return result, nil
-}
-
-// Track analysis job mock methods
-func (m *MockMediaFileRepo) CountWithoutTrackAnalysis(afterID string) (int64, error) {
-	if m.Err {
-		return 0, errors.New("error")
-	}
-	var count int64
-	for _, mf := range m.Data {
-		if !mf.Missing && (afterID == "" || mf.ID > afterID) {
-			// Check if energyval tag is missing and not marked as not found
-			_, hasEnergyVal := mf.Tags["energyval"]
-			_, hasNotFound := mf.Tags["trackanalysis_notfound"]
-			if !hasEnergyVal && !hasNotFound {
-				count++
-			}
-		}
-	}
-	return count, nil
-}
-
-func (m *MockMediaFileRepo) GetNextWithoutTrackAnalysis(afterID string) (*model.MediaFile, error) {
-	if m.Err {
-		return nil, errors.New("error")
-	}
-	var candidates []*model.MediaFile
-	for _, mf := range m.Data {
-		if !mf.Missing && (afterID == "" || mf.ID > afterID) {
-			// Check if energyval tag is missing and not marked as not found
-			_, hasEnergyVal := mf.Tags["energyval"]
-			_, hasNotFound := mf.Tags["trackanalysis_notfound"]
-			if !hasEnergyVal && !hasNotFound {
-				candidates = append(candidates, mf)
-			}
-		}
-	}
-	if len(candidates) == 0 {
-		return nil, nil
-	}
-	// Sort by ID and return the first
-	slices.SortFunc(candidates, func(a, b *model.MediaFile) int {
-		return cmp.Compare(a.ID, b.ID)
-	})
-	return candidates[0], nil
 }
 
 var _ model.MediaFileRepository = (*MockMediaFileRepo)(nil)

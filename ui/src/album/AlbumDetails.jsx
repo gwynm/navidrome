@@ -34,6 +34,7 @@ import config from '../config'
 import { formatFullDate, intersperse } from '../utils'
 import AlbumExternalLinks from './AlbumExternalLinks'
 import AlbumTagFields from './AlbumTagFields'
+import { SafeHTML } from '../common/SafeHTML'
 
 const useStyles = makeStyles(
   (theme) => ({
@@ -226,10 +227,9 @@ const AlbumDetails = (props) => {
   const [imageLoading, setImageLoading] = useState(false)
   const [imageError, setImageError] = useState(false)
 
-  let notes =
-    albumInfo?.notes?.replace(new RegExp('<.*>', 'g'), '') || record.notes
+  let notes = albumInfo?.notes || record.notes
 
-  if (notes !== undefined) {
+  if (notes) {
     notes += '..'
   }
 
@@ -342,7 +342,7 @@ const AlbumDetails = (props) => {
                 )}
               </Typography>
             )}
-            {isDesktop && (
+            {isDesktop && notes && (
               <Collapse
                 collapsedHeight={'2.75em'}
                 in={expanded}
@@ -353,7 +353,9 @@ const AlbumDetails = (props) => {
                   variant={'body1'}
                   onClick={() => setExpanded(!expanded)}
                 >
-                  <span dangerouslySetInnerHTML={{ __html: notes }} />
+                  <span>
+                    <SafeHTML>{notes}</SafeHTML>
+                  </span>
                 </Typography>
               </Collapse>
             )}
@@ -366,14 +368,16 @@ const AlbumDetails = (props) => {
       {!isDesktop && record['comment'] && (
         <CollapsibleComment record={record} />
       )}
-      {!isDesktop && (
+      {!isDesktop && notes && (
         <div className={classes.notes}>
           <Collapse collapsedHeight={'1.5em'} in={expanded} timeout={'auto'}>
             <Typography
               variant={'body1'}
               onClick={() => setExpanded(!expanded)}
             >
-              <span dangerouslySetInnerHTML={{ __html: notes }} />
+              <span>
+                <SafeHTML>{notes}</SafeHTML>
+              </span>
             </Typography>
           </Collapse>
         </div>

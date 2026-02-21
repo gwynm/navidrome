@@ -40,7 +40,7 @@ func createPhaseFolders(ctx context.Context, state *scanState, ds model.DataStor
 		job, err := newScanJob(ctx, ds, cw, lib, state.fullScan, targetFolders)
 		if err != nil {
 			log.Error(ctx, "Scanner: Error creating scan context", "lib", lib.Name, err)
-			state.sendWarning(err.Error())
+			state.sendError(err)
 			continue
 		}
 		jobs = append(jobs, job)
@@ -76,6 +76,12 @@ func newScanJob(ctx context.Context, ds model.DataStore, cw artwork.CacheWarmer,
 		log.Error(ctx, "Error getting fs for library", "library", lib.Name, "path", lib.Path, err)
 		return nil, fmt.Errorf("getting fs for library: %w", err)
 	}
+
+	// Ensure FullScanInProgress reflects the current scan request.
+	// This is important when resuming an interrupted quick scan as a full scan:
+	// the DB may have FullScanInProgress=false, but we need it true for isOutdated() to work correctly.
+	lib.FullScanInProgress = lib.FullScanInProgress || fullScan
+
 	return &scanJob{
 		lib:           lib,
 		fs:            fsys,

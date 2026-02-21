@@ -15,7 +15,6 @@ import PlayArrowIcon from '@material-ui/icons/PlayArrow'
 import ShuffleIcon from '@material-ui/icons/Shuffle'
 import CloudDownloadOutlinedIcon from '@material-ui/icons/CloudDownloadOutlined'
 import MusicNoteIcon from '@material-ui/icons/MusicNote'
-import AssessmentIcon from '@material-ui/icons/Assessment'
 import { RiPlayListAddFill, RiPlayList2Fill } from 'react-icons/ri'
 import PlaylistAddIcon from '@material-ui/icons/PlaylistAdd'
 import ShareIcon from '@material-ui/icons/Share'
@@ -60,7 +59,6 @@ const AlbumActions = ({
   const dataProvider = useDataProvider()
   const notify = useNotify()
   const [fetchingLyrics, setFetchingLyrics] = useState(false)
-  const [fetchingTrackData, setFetchingTrackData] = useState(false)
   const isDesktop = useMediaQuery((theme) => theme.breakpoints.up('md'))
   const isNotSmall = useMediaQuery((theme) => theme.breakpoints.up('sm'))
 
@@ -108,24 +106,6 @@ const AlbumActions = ({
       })
     } finally {
       setFetchingLyrics(false)
-    }
-  }, [dataProvider, record, notify])
-
-  const handleFetchTrackData = React.useCallback(async () => {
-    setFetchingTrackData(true)
-    try {
-      const result = await dataProvider.fetchAlbumTrackData(record.id)
-      const { fetched, failed, skipped, total } = result.data
-      notify('resources.album.notifications.trackDataFetched', {
-        type: 'info',
-        messageArgs: { fetched, failed, skipped, total },
-      })
-    } catch (error) {
-      notify('resources.album.notifications.trackDataFetchError', {
-        type: 'warning',
-      })
-    } finally {
-      setFetchingTrackData(false)
     }
   }, [dataProvider, record, notify])
 
@@ -188,13 +168,6 @@ const AlbumActions = ({
             label={translate('resources.album.actions.fetchLyrics')}
           >
             <MusicNoteIcon />
-          </Button>
-          <Button
-            onClick={handleFetchTrackData}
-            disabled={fetchingTrackData}
-            label={translate('resources.album.actions.fetchTrackData')}
-          >
-            <AssessmentIcon />
           </Button>
         </div>
         <div>{isNotSmall && <ToggleFieldsMenu resource="albumSong" />}</div>

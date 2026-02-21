@@ -9,52 +9,21 @@ ARG INSTALL_NODE="true"
 ARG NODE_VERSION="lts/*"
 RUN if [ "${INSTALL_NODE}" = "true" ]; then su vscode -c "source /usr/local/share/nvm/nvm.sh && nvm install ${NODE_VERSION} 2>&1"; fi
 
-# Install Essentia for audio analysis (energy detection)
-# Only install on x86_64 - no pip wheels available for arm64
-RUN if [ "$(uname -m)" = "x86_64" ]; then \
-        apt-get update && export DEBIAN_FRONTEND=noninteractive \
-        && apt-get -y install --no-install-recommends python3-pip \
-        && pip3 install --break-system-packages essentia \
-        && apt-get clean \
-        && rm -rf /var/lib/apt/lists/*; \
-    else \
-        echo "Skipping Essentia installation on $(uname -m) - no pip wheels available"; \
-    fi
-
-# Install dependencies and download custom TagLib with DSF support (same as production)
-ARG CROSS_TAGLIB_VERSION=2.1.0-1
+# Install additional OS packages
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
-    && apt-get -y install --no-install-recommends \
-        wget \
-        pkg-config \
-        build-essential \
-        ffmpeg \
-    && mkdir -p /usr/local/taglib \
-    && cd /tmp \
-    && ARCH=$(uname -m) \
-    && if [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi \
-    && if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; fi \
-    && TAGLIB_FILE="taglib-linux-${ARCH}.tar.gz" \
-    && wget https://github.com/navidrome/cross-taglib/releases/download/v${CROSS_TAGLIB_VERSION}/${TAGLIB_FILE} \
-    && tar -xzf ${TAGLIB_FILE} -C /usr/local/taglib \
-    && chmod -R 755 /usr/local/taglib \
-    && sed -i 's|^prefix=/taglib|prefix=/usr/local/taglib|g' /usr/local/taglib/lib/pkgconfig/taglib.pc \
-    && sed -i 's|^prefix=/taglib|prefix=/usr/local/taglib|g' /usr/local/taglib/lib/pkgconfig/taglib_c.pc \
-    && echo "export PKG_CONFIG_PATH=/usr/local/taglib/lib/pkgconfig:$PKG_CONFIG_PATH" >> /etc/environment \
-    && echo "export LD_LIBRARY_PATH=/usr/local/taglib/lib:$LD_LIBRARY_PATH" >> /etc/environment \
-    && rm -f ${TAGLIB_FILE} \
-    && apt-get -y autoremove \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get -y install --no-install-recommends ffmpeg
 
-# Set PKG_CONFIG_PATH for the current session and future sessions
-ENV PKG_CONFIG_PATH=/usr/local/taglib/lib/pkgconfig:$PKG_CONFIG_PATH
-ENV LD_LIBRARY_PATH=/usr/local/taglib/lib:$LD_LIBRARY_PATH
+# Install TagLib from cross-taglib releases
+ARG CROSS_TAGLIB_VERSION="2.1.1-1"
+ARG TARGETARCH
+RUN DOWNLOAD_ARCH="linux-${TARGETARCH}" \
+    && wget -q "https://github.com/navidrome/cross-taglib/releases/download/v${CROSS_TAGLIB_VERSION}/taglib-${DOWNLOAD_ARCH}.tar.gz" -O /tmp/cross-taglib.tar.gz \
+    && tar -xzf /tmp/cross-taglib.tar.gz -C /usr --strip-components=1 \
+    && mv /usr/include/taglib/* /usr/include/ \
+    && rmdir /usr/include/taglib \
+    && rm /tmp/cross-taglib.tar.gz /usr/provenance.json
 
-# [Optional] Uncomment the next line to use go get to install anything else you need
-# RUN go get -x <your-dependency-or-tool>
+ENV CGO_CFLAGS_ALLOW="--define-prefix"
 
 # [Optional] Uncomment this line to install global node packages.
 # RUN su vscode -c "source /usr/local/share/nvm/nvm.sh && npm install -g <your-package-here>" 2>&1
-
-RUN echo "Devcontainer is ready. Run 'make dev' to start (hot-reloading) servers."

@@ -18,7 +18,6 @@ import QueueMusicIcon from '@material-ui/icons/QueueMusic'
 import ShareIcon from '@material-ui/icons/Share'
 import EditIcon from '@material-ui/icons/Edit'
 import MusicNoteIcon from '@material-ui/icons/MusicNote'
-import AssessmentIcon from '@material-ui/icons/Assessment'
 import { httpClient } from '../dataProvider'
 import {
   playNext,
@@ -47,7 +46,6 @@ const PlaylistActions = ({ className, ids, data, record, ...rest }) => {
   const notify = useNotify()
   const redirect = useRedirect()
   const [fetchingLyrics, setFetchingLyrics] = useState(false)
-  const [fetchingTrackData, setFetchingTrackData] = useState(false)
   const isDesktop = useMediaQuery((theme) => theme.breakpoints.up('md'))
   const isNotSmall = useMediaQuery((theme) => theme.breakpoints.up('sm'))
 
@@ -140,24 +138,6 @@ const PlaylistActions = ({ className, ids, data, record, ...rest }) => {
     }
   }, [dataProvider, record, notify])
 
-  const handleFetchTrackData = React.useCallback(async () => {
-    setFetchingTrackData(true)
-    try {
-      const result = await dataProvider.fetchPlaylistTrackData(record.id)
-      const { fetched, failed, skipped, total } = result.data
-      notify('resources.album.notifications.trackDataFetched', {
-        type: 'info',
-        messageArgs: { fetched, failed, skipped, total },
-      })
-    } catch (error) {
-      notify('resources.album.notifications.trackDataFetchError', {
-        type: 'warning',
-      })
-    } finally {
-      setFetchingTrackData(false)
-    }
-  }, [dataProvider, record, notify])
-
   return (
     <TopToolbar className={className} {...sanitizeListRestProps(rest)}>
       <div className={classes.toolbar}>
@@ -208,13 +188,6 @@ const PlaylistActions = ({ className, ids, data, record, ...rest }) => {
             label={translate('resources.album.actions.fetchLyrics')}
           >
             <MusicNoteIcon />
-          </Button>
-          <Button
-            onClick={handleFetchTrackData}
-            disabled={fetchingTrackData}
-            label={translate('resources.album.actions.fetchTrackData')}
-          >
-            <AssessmentIcon />
           </Button>
           <Button
             onClick={handleExport}

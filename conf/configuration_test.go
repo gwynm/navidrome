@@ -26,12 +26,38 @@ var _ = Describe("Configuration", func() {
 		conf.ResetConf()
 	})
 
+	Describe("ParseLanguages", func() {
+		It("parses single language", func() {
+			Expect(conf.ParseLanguages("en")).To(Equal([]string{"en"}))
+		})
+
+		It("parses multiple comma-separated languages", func() {
+			Expect(conf.ParseLanguages("pt,en")).To(Equal([]string{"pt", "en"}))
+		})
+
+		It("trims whitespace from languages", func() {
+			Expect(conf.ParseLanguages(" pt , en ")).To(Equal([]string{"pt", "en"}))
+		})
+
+		It("returns default 'en' when empty", func() {
+			Expect(conf.ParseLanguages("")).To(Equal([]string{"en"}))
+		})
+
+		It("returns default 'en' when only whitespace", func() {
+			Expect(conf.ParseLanguages("   ")).To(Equal([]string{"en"}))
+		})
+
+		It("handles multiple languages with various spacing", func() {
+			Expect(conf.ParseLanguages("ja, pt, en")).To(Equal([]string{"ja", "pt", "en"}))
+		})
+	})
+
 	DescribeTable("should load configuration from",
 		func(format string) {
 			filename := filepath.Join("testdata", "cfg."+format)
 
 			// Initialize config with the test file
-			conf.InitConfig(filename)
+			conf.InitConfig(filename, false)
 			// Load the configuration (with noConfigDump=true)
 			conf.Load(true)
 
@@ -40,6 +66,9 @@ var _ = Describe("Configuration", func() {
 			Expect(conf.Server.UIWelcomeMessage).To(Equal("Welcome " + format))
 			Expect(conf.Server.Tags["custom"].Aliases).To(Equal([]string{format, "test"}))
 			Expect(conf.Server.Tags["artist"].Split).To(Equal([]string{";"}))
+
+			// Check deprecated option mapping
+			Expect(conf.Server.ExtAuth.UserHeader).To(Equal("X-Auth-User"))
 
 			// The config file used should be the one we created
 			Expect(conf.Server.ConfigFile).To(Equal(filename))

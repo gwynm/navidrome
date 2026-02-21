@@ -87,15 +87,3 @@ func (rr *RefreshResource) Data(evt Event) string {
 	data, _ := json.Marshal(r.resources)
 	return string(data)
 }
-
-type TrackAnalysisStatus struct {
-	baseEvent
-	Running     bool          `json:"running"`
-	Total       int64         `json:"total"`
-	Processed   int64         `json:"processed"`
-	Fetched     int64         `json:"fetched"`
-	Failed      int64         `json:"failed"`
-	Skipped     int64         `json:"skipped"`
-	Error       string        `json:"error"`
-	ElapsedTime time.Duration `json:"elapsedTime"`
-}
