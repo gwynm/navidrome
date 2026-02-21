@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react'
-import { useNotify, useRefresh } from 'react-admin'
+import { useNotify } from 'react-admin'
 import subsonic from '../subsonic'
 
 export const useRating = (resource, record, afterRate) => {
   const [loading, setLoading] = useState(false)
   const notify = useNotify()
-  const refresh = useRefresh()
   const [localRating, setLocalRating] = useState(record.rating)
 
   useEffect(() => {
@@ -27,17 +26,7 @@ export const useRating = (resource, record, afterRate) => {
           }
         }
       })
-      .then(() => {
-        if (afterRate) {
-          setTimeout(() => {
-            refresh()
-            setLoading(false)
-          }, 1000)
-        } else {
-          refresh()
-          setLoading(false)
-        }
-      })
+      .then(() => setLoading(false))
       .catch((e) => {
         setLocalRating(record.rating)
         // eslint-disable-next-line no-console

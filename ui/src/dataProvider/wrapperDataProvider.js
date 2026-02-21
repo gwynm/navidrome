@@ -35,7 +35,14 @@ const getSelectedLibraries = () => {
 // Function to apply library filtering to appropriate resources
 const applyLibraryFilter = (resource, params) => {
   // Content resources that should be filtered by selected libraries
-  const filteredResources = ['album', 'song', 'artist', 'playlistTrack', 'tag']
+  const filteredResources = [
+    'album',
+    'song',
+    'artist',
+    'playlistTrack',
+    'tag',
+    'potentialTrash',
+  ]
 
   // Get selected libraries from localStorage
   const selectedLibraries = getSelectedLibraries()
@@ -76,6 +83,14 @@ const mapResource = (resource, params) => {
       }
       params = applyLibraryFilter(resource, params)
 
+      return [resource, params]
+    }
+    case 'potentialTrash': {
+      params.filter = params.filter || {}
+      if (!isAdmin()) {
+        params.filter.missing = false
+      }
+      params = applyLibraryFilter(resource, params)
       return [resource, params]
     }
     default:
@@ -199,7 +214,11 @@ const wrapperDataProvider = {
   },
   deleteMany: (resource, params) => {
     const [r, p] = mapResource(resource, params)
-    if (r.endsWith('/tracks') || resource === 'missing') {
+    if (
+      r.endsWith('/tracks') ||
+      resource === 'missing' ||
+      resource === 'potentialTrash'
+    ) {
       return callDeleteMany(r, p)
     }
     return dataProvider.deleteMany(r, p)

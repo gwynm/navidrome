@@ -3,6 +3,8 @@ package core
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"sync"
 	"time"
@@ -19,6 +21,9 @@ type Maintenance interface {
 	DeleteMissingFiles(ctx context.Context, ids []string) error
 	// DeleteAllMissingFiles deletes all files marked as missing
 	DeleteAllMissingFiles(ctx context.Context) error
+	// DeletePotentialTrash deletes files from disk and DB that the current user
+	// rated 1 star and no other user rated > 1 star.
+	DeletePotentialTrash(ctx context.Context, ids []string) error
 }
 
 type maintenanceService struct {
@@ -72,6 +77,127 @@ func (s *maintenanceService) deleteMissing(ctx context.Context, ids []string) er
 	s.refreshStatsAsync(ctx, affectedAlbumIDs)
 
 	return nil
+}
+
+func (s *maintenanceService) DeletePotentialTrash(ctx context.Context, ids []string) error {
+	user, ok := request.UserFrom(ctx)
+	if !ok {
+		return fmt.Errorf("no user in context")
+	}
+
+	// When no IDs given, find all potential trash for this user
+	var verified model.MediaFiles
+	var err error
+	if len(ids) == 0 {
+		verified, err = s.ds.MediaFile(ctx).GetAll(model.QueryOptions{
+			Filters: squirrel.And{
+				squirrel.Expr("COALESCE(annotation.rating, 0) = 1"),
+				squirrel.Expr("NOT EXISTS (SELECT 1 FROM annotation a2 WHERE a2.item_id = media_file.id AND a2.item_type = 'media_file' AND a2.user_id != annotation.user_id AND a2.rating > 1)"),
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("loading all potential trash: %w", err)
+		}
+	} else {
+		mfRepo := s.ds.MediaFile(ctx)
+		mfs, err := mfRepo.GetAll(model.QueryOptions{
+			Filters: squirrel.Eq{"media_file.id": ids},
+		})
+		if err != nil {
+			return fmt.Errorf("loading media files: %w", err)
+		}
+		if len(mfs) == 0 {
+			return model.ErrNotFound
+		}
+		verified, err = s.verifyPotentialTrash(ctx, user.ID, mfs)
+		if err != nil {
+			return fmt.Errorf("verifying potential trash criteria: %w", err)
+		}
+	}
+	if len(verified) == 0 {
+		return nil
+	}
+
+	// Build library path map for absolute path resolution
+	libs, err := s.ds.Library(ctx).GetAll()
+	if err != nil {
+		return fmt.Errorf("loading libraries: %w", err)
+	}
+	libPaths := make(map[int]string, len(libs))
+	for _, lib := range libs {
+		libPaths[lib.ID] = lib.Path
+	}
+
+	// Collect affected album IDs before deletion
+	albumIDMap := make(map[string]struct{})
+	for _, mf := range verified {
+		if mf.AlbumID != "" {
+			albumIDMap[mf.AlbumID] = struct{}{}
+		}
+	}
+
+	// Delete files from disk
+	for _, mf := range verified {
+		libPath, ok := libPaths[mf.LibraryID]
+		if !ok {
+			log.Warn(ctx, "Library not found for media file", "id", mf.ID, "libraryId", mf.LibraryID)
+			continue
+		}
+		absPath := filepath.Join(libPath, mf.Path)
+		if err := os.Remove(absPath); err != nil && !os.IsNotExist(err) {
+			log.Error(ctx, "Error deleting file from disk", "path", absPath, err)
+			return fmt.Errorf("deleting file %s: %w", absPath, err)
+		}
+		log.Info(ctx, "Deleted potential trash file from disk", "path", absPath)
+	}
+
+	// Delete DB records in a transaction
+	err = s.ds.WithTx(func(tx model.DataStore) error {
+		for _, mf := range verified {
+			if err := tx.MediaFile(ctx).Delete(mf.ID); err != nil {
+				return fmt.Errorf("deleting media file %s from DB: %w", mf.ID, err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		log.Error(ctx, "Error deleting potential trash from DB", err)
+		return err
+	}
+
+	if err := s.ds.GC(ctx); err != nil {
+		log.Error(ctx, "Error running GC after deleting potential trash", err)
+		return err
+	}
+
+	affectedAlbumIDs := make([]string, 0, len(albumIDMap))
+	for id := range albumIDMap {
+		affectedAlbumIDs = append(affectedAlbumIDs, id)
+	}
+	s.refreshStatsAsync(ctx, affectedAlbumIDs)
+
+	return nil
+}
+
+// verifyPotentialTrash returns only the media files that the current user rated 1 star
+// and no other user has rated > 1 star.
+func (s *maintenanceService) verifyPotentialTrash(ctx context.Context, userID string, mfs model.MediaFiles) (model.MediaFiles, error) {
+	if len(mfs) == 0 {
+		return nil, nil
+	}
+
+	ids := make([]string, len(mfs))
+	for i, mf := range mfs {
+		ids[i] = mf.ID
+	}
+
+	return s.ds.MediaFile(ctx).GetAll(model.QueryOptions{
+		Filters: squirrel.And{
+			squirrel.Eq{"media_file.id": ids},
+			squirrel.Expr("COALESCE(annotation.rating, 0) = 1"),
+			squirrel.Expr("NOT EXISTS (SELECT 1 FROM annotation a2 WHERE a2.item_id = media_file.id AND a2.item_type = 'media_file' AND a2.user_id != annotation.user_id AND a2.rating > 1)"),
+		},
+	})
 }
 
 // refreshAlbums recalculates album attributes (size, duration, song count, etc.) from media files.

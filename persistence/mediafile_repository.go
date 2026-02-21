@@ -93,13 +93,14 @@ func NewMediaFileRepository(ctx context.Context, db dbx.Builder) model.MediaFile
 
 var mediaFileFilter = sync.OnceValue(func() map[string]filterFunc {
 	filters := map[string]filterFunc{
-		"id":         idFilter("media_file"),
-		"title":      fullTextFilter("media_file", "mbz_recording_id", "mbz_release_track_id"),
-		"starred":    annotationBoolFilter("starred"),
-		"genre_id":   tagIDFilter,
-		"missing":    booleanFilter,
-		"artists_id": artistFilter,
-		"library_id": libraryIdFilter,
+		"id":              idFilter("media_file"),
+		"title":           fullTextFilter("media_file", "mbz_recording_id", "mbz_release_track_id"),
+		"starred":         annotationBoolFilter("starred"),
+		"genre_id":        tagIDFilter,
+		"missing":         booleanFilter,
+		"artists_id":      artistFilter,
+		"library_id":      libraryIdFilter,
+		"potential_trash": potentialTrashFilter,
 	}
 	// Add all album tags as filters
 	for tag := range model.TagMappings() {
@@ -109,6 +110,17 @@ var mediaFileFilter = sync.OnceValue(func() map[string]filterFunc {
 	}
 	return filters
 })
+
+func potentialTrashFilter(field string, value any) Sqlizer {
+	v, ok := value.(string)
+	if !ok || strings.ToLower(v) != "true" {
+		return nil
+	}
+	return And{
+		Expr("COALESCE(annotation.rating, 0) = 1"),
+		Expr("NOT EXISTS (SELECT 1 FROM annotation a2 WHERE a2.item_id = media_file.id AND a2.item_type = 'media_file' AND a2.user_id != annotation.user_id AND a2.rating > 1)"),
+	}
+}
 
 func mediaFileRecentlyAddedSort() string {
 	if conf.Server.RecentlyAddedByModTime {

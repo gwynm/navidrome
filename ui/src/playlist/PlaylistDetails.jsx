@@ -8,7 +8,7 @@ import {
 import { makeStyles } from '@material-ui/core/styles'
 import Rating from '@material-ui/lab/Rating'
 import StarBorderIcon from '@material-ui/icons/StarBorder'
-import { useDataProvider, useNotify, useRefresh, useTranslate } from 'react-admin'
+import { useDataProvider, useNotify, useTranslate } from 'react-admin'
 import { useCallback, useMemo, useState, useEffect } from 'react'
 import Lightbox from 'react-image-lightbox'
 import 'react-image-lightbox/style.css'
@@ -89,7 +89,6 @@ const useStyles = makeStyles(
 const PlaylistRatingField = ({ record, size }) => {
   const dataProvider = useDataProvider()
   const notify = useNotify()
-  const refresh = useRefresh()
   const [tracks, setTracks] = useState([])
   const [displayRating, setDisplayRating] = useState(0)
 
@@ -134,17 +133,13 @@ const PlaylistRatingField = ({ record, size }) => {
             ),
           )
         }
-        setTimeout(() => {
-          fetchTracks()
-          refresh()
-        }, 1000)
       } catch (e) {
         // eslint-disable-next-line no-console
         console.log('Error setting playlist rating:', e)
         notify('ra.page.error', 'warning')
       }
     },
-    [tracks, notify, refresh, fetchTracks],
+    [tracks, notify],
   )
 
   return (

@@ -83,6 +83,7 @@ func (api *Router) routes() http.Handler {
 		api.addPlaylistLyricsRoute(r)
 		api.addQueueRoute(r)
 		api.addMissingFilesRoute(r)
+		api.addPotentialTrashRoute(r)
 		api.addKeepAliveRoute(r)
 		api.addInsightsRoute(r)
 
@@ -193,6 +194,13 @@ func (api *Router) addMissingFilesRoute(r chi.Router) {
 	r.Route("/missing", func(r chi.Router) {
 		api.RX(r, "/", newMissingRepository(api.ds), false)
 		r.Delete("/", deleteMissingFiles(api.maintenance))
+	})
+}
+
+func (api *Router) addPotentialTrashRoute(r chi.Router) {
+	r.Route("/potentialTrash", func(r chi.Router) {
+		api.RX(r, "/", newPotentialTrashRepository(api.ds), false)
+		r.Delete("/", deletePotentialTrashFiles(api.maintenance))
 	})
 }
 

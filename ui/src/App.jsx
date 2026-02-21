@@ -43,6 +43,7 @@ import SharePlayer from './share/SharePlayer'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { DndProvider } from 'react-dnd'
 import missing from './missing/index.js'
+import potentialTrash from './potentialTrash'
 
 const history = createHashHistory()
 
@@ -101,6 +102,7 @@ const Admin = (props) => {
         <Resource name="album" {...album} options={{ subMenu: 'albumList' }} />,
         <Resource name="artist" {...artist} />,
         <Resource name="song" {...song} />,
+        <Resource name="potentialTrash" {...potentialTrash} />,
         <Resource
           name="playlist"
           {...playlist}

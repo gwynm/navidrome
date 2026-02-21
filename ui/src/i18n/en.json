@@ -270,6 +270,39 @@
       "notifications": {},
       "actions": {}
     },
+    "potentialTrash": {
+      "name": "Potential Trash",
+      "empty": "No potential trash found",
+      "fields": {
+        "title": "Title",
+        "artist": "Artist",
+        "albumArtist": "Album Artist",
+        "composer": "Composer",
+        "album": "Album",
+        "trackNumber": "#",
+        "playCount": "Plays",
+        "playDate": "Last Played",
+        "year": "Year",
+        "quality": "Quality",
+        "channels": "Channels",
+        "duration": "Time",
+        "rating": "Rating",
+        "bpm": "BPM",
+        "genre": "Genre",
+        "mood": "Mood",
+        "energy": "Energy",
+        "comment": "Comment",
+        "path": "File path",
+        "createdAt": "Date added"
+      },
+      "actions": {
+        "deleteAll": "Delete All"
+      },
+      "notifications": {
+        "removed": "Files deleted successfully",
+        "error": "Error deleting files"
+      }
+    },
     "missing": {
       "name": "Missing File |||| Missing Files",
       "empty": "No Missing Files",
@@ -579,6 +612,8 @@
     "remove_missing_content": "Are you sure you want to remove the selected missing files from the database? This will remove permanently any references to them, including their play counts and ratings.",
     "remove_all_missing_title": "Remove all missing files",
     "remove_all_missing_content": "Are you sure you want to remove all missing files from the database? This will permanently remove any references to them, including their play counts and ratings.",
+    "delete_trash_title": "Delete files from disk",
+    "delete_trash_content": "Are you sure you want to permanently delete the selected files from the server? This cannot be undone.",
     "notifications_blocked": "You have blocked Notifications for this site in your browser's settings",
     "notifications_not_available": "This browser does not support desktop notifications or you are not accessing Navidrome over https",
     "lastfmLinkSuccess": "Last.fm successfully linked and scrobbling enabled",
