@@ -71,6 +71,7 @@
 	"remoteUser": "vscode",
 	"remoteEnv": {
 		"ND_MUSICFOLDER": "./music",
-		"ND_DATAFOLDER": "./data"
+		"ND_DATAFOLDER": "./data",
+		"CGO_CFLAGS_ALLOW": "--define-prefix"
 	}
 }
