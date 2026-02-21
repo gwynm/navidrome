@@ -27,10 +27,11 @@ export const RatingField = ({
   className,
   size,
   color,
+  afterRate,
   ...rest
 }) => {
   const record = useRecordContext(rest) || {}
-  const [rate, rating] = useRating(resource, record)
+  const [rate, rating] = useRating(resource, record, afterRate)
   const classes = useStyles({ color, visible })
 
   const stopPropagation = (e) => {

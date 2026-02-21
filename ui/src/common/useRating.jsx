@@ -1,73 +1,51 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { useDataProvider, useNotify } from 'react-admin'
+import { useState, useEffect } from 'react'
+import { useNotify, useRefresh } from 'react-admin'
 import subsonic from '../subsonic'
 
-export const useRating = (resource, record) => {
+export const useRating = (resource, record, afterRate) => {
   const [loading, setLoading] = useState(false)
   const notify = useNotify()
-  const dataProvider = useDataProvider()
-  const mountedRef = useRef(false)
-  const rating = record.rating
+  const refresh = useRefresh()
+  const [localRating, setLocalRating] = useState(record.rating)
 
   useEffect(() => {
-    mountedRef.current = true
-    return () => {
-      mountedRef.current = false
-    }
-  }, [])
-
-  const refreshRating = useCallback(() => {
-    // For playlist tracks, refresh both resources to keep data in sync
-    if (record.mediaFileId) {
-      // This is a playlist track - refresh both the playlist track and the song
-      const promises = [
-        dataProvider.getOne('song', { id: record.mediaFileId }),
-        dataProvider.getOne('playlistTrack', {
-          id: record.id,
-          filter: { playlist_id: record.playlistId },
-        }),
-      ]
-
-      Promise.all(promises)
-        .catch((e) => {
-          // eslint-disable-next-line no-console
-          console.log('Error encountered: ' + e)
-        })
-        .finally(() => {
-          if (mountedRef.current) {
-            setLoading(false)
-          }
-        })
-    } else {
-      // Regular song or other resource
-      dataProvider
-        .getOne(resource, { id: record.id })
-        .catch((e) => {
-          // eslint-disable-next-line no-console
-          console.log('Error encountered: ' + e)
-        })
-        .finally(() => {
-          if (mountedRef.current) {
-            setLoading(false)
-          }
-        })
-    }
-  }, [dataProvider, record.id, record.mediaFileId, record.playlistId, resource])
+    setLocalRating(record.rating)
+  }, [record.rating])
 
   const rate = (val, id) => {
+    setLocalRating(val)
     setLoading(true)
     subsonic
       .setRating(id, val)
-      .then(refreshRating)
-      .catch((e) => {
-        // eslint-disable-next-line no-console
-        console.log('Error setting star rating: ', e)
-        notify('ra.page.error', 'warning')
-        if (mountedRef.current) {
+      .then(async () => {
+        if (afterRate) {
+          try {
+            await afterRate(val)
+          } catch (e) {
+            // eslint-disable-next-line no-console
+            console.log('Error in afterRate callback: ', e)
+          }
+        }
+      })
+      .then(() => {
+        if (afterRate) {
+          setTimeout(() => {
+            refresh()
+            setLoading(false)
+          }, 1000)
+        } else {
+          refresh()
           setLoading(false)
         }
       })
+      .catch((e) => {
+        setLocalRating(record.rating)
+        // eslint-disable-next-line no-console
+        console.log('Error setting star rating: ', e)
+        notify('ra.page.error', 'warning')
+        setLoading(false)
+      })
   }
 
-  return [rate, rating, loading]
+  return [rate, localRating, loading]
 }

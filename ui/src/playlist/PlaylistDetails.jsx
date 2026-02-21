@@ -6,11 +6,14 @@ import {
   useMediaQuery,
 } from '@material-ui/core'
 import { makeStyles } from '@material-ui/core/styles'
-import { useTranslate } from 'react-admin'
-import { useCallback, useState, useEffect } from 'react'
+import Rating from '@material-ui/lab/Rating'
+import StarBorderIcon from '@material-ui/icons/StarBorder'
+import { useDataProvider, useNotify, useRefresh, useTranslate } from 'react-admin'
+import { useCallback, useMemo, useState, useEffect } from 'react'
 import Lightbox from 'react-image-lightbox'
 import 'react-image-lightbox/style.css'
 import { CollapsibleComment, DurationField, SizeField } from '../common'
+import config from '../config'
 import subsonic from '../subsonic'
 
 const useStyles = makeStyles(
@@ -82,6 +85,78 @@ const useStyles = makeStyles(
     name: 'NDPlaylistDetails',
   },
 )
+
+const PlaylistRatingField = ({ record, size }) => {
+  const dataProvider = useDataProvider()
+  const notify = useNotify()
+  const refresh = useRefresh()
+  const [tracks, setTracks] = useState([])
+  const [displayRating, setDisplayRating] = useState(0)
+
+  const fetchTracks = useCallback(() => {
+    if (!record?.id) return
+    dataProvider
+      .getList('playlistTrack', {
+        pagination: { page: 1, perPage: 9999 },
+        sort: { field: 'id', order: 'ASC' },
+        filter: { playlist_id: record.id },
+      })
+      .then(({ data }) => setTracks(data))
+      .catch((e) => {
+        // eslint-disable-next-line no-console
+        console.log('Error fetching playlist tracks:', e)
+      })
+  }, [dataProvider, record?.id])
+
+  useEffect(() => {
+    fetchTracks()
+  }, [fetchTracks])
+
+  useEffect(() => {
+    if (!tracks.length) {
+      setDisplayRating(0)
+      return
+    }
+    const sum = tracks.reduce((acc, t) => acc + (t.rating || 0), 0)
+    setDisplayRating(Math.round(sum / tracks.length))
+  }, [tracks])
+
+  const handleRating = useCallback(
+    async (e, val) => {
+      const newVal = val ?? 0
+      setDisplayRating(newVal)
+      try {
+        const unrated = tracks.filter((t) => !t.rating)
+        if (unrated.length > 0) {
+          await Promise.all(
+            unrated.map((t) =>
+              subsonic.setRating(t.mediaFileId || t.id, newVal),
+            ),
+          )
+        }
+        setTimeout(() => {
+          fetchTracks()
+          refresh()
+        }, 1000)
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.log('Error setting playlist rating:', e)
+        notify('ra.page.error', 'warning')
+      }
+    },
+    [tracks, notify, refresh, fetchTracks],
+  )
+
+  return (
+    <Rating
+      name={`playlist-${record.id}`}
+      value={displayRating}
+      size={size}
+      emptyIcon={<StarBorderIcon fontSize="inherit" />}
+      onChange={handleRating}
+    />
+  )
+}
 
 const PlaylistDetails = (props) => {
   const { record = {} } = props
@@ -163,6 +238,14 @@ const PlaylistDetails = (props) => {
                 <span>&nbsp;</span>
               )}
             </Typography>
+            {config.enableStarRating && (
+              <div>
+                <PlaylistRatingField
+                  record={record}
+                  size={isDesktop ? 'medium' : 'small'}
+                />
+              </div>
+            )}
             <CollapsibleComment record={record} />
           </CardContent>
         </div>

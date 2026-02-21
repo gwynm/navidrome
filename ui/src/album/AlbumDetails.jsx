@@ -14,6 +14,7 @@ import {
   ChipField,
   Link,
   SingleFieldList,
+  useDataProvider,
   useRecordContext,
   useTranslate,
 } from 'react-admin'
@@ -221,6 +222,7 @@ const AlbumDetails = (props) => {
   const isXsmall = useMediaQuery((theme) => theme.breakpoints.down('xs'))
   const isDesktop = useMediaQuery((theme) => theme.breakpoints.up('lg'))
   const classes = useStyles()
+  const dataProvider = useDataProvider()
   const [isLightboxOpen, setLightboxOpen] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const [albumInfo, setAlbumInfo] = useState()
@@ -275,6 +277,22 @@ const AlbumDetails = (props) => {
 
   const handleCloseLightbox = useCallback(() => setLightboxOpen(false), [])
 
+  const afterAlbumRate = useCallback(
+    async (val) => {
+      if (val === 0) return
+      const { data: songs } = await dataProvider.getList('song', {
+        pagination: { page: 1, perPage: 500 },
+        sort: { field: 'id', order: 'ASC' },
+        filter: { album_id: record.id },
+      })
+      const unrated = songs.filter((s) => !s.rating)
+      if (unrated.length > 0) {
+        await Promise.all(unrated.map((s) => subsonic.setRating(s.id, val)))
+      }
+    },
+    [dataProvider, record.id],
+  )
+
   return (
     <Card className={classes.root}>
       <div className={classes.cardContents}>
@@ -326,6 +344,7 @@ const AlbumDetails = (props) => {
                   record={record}
                   resource={'album'}
                   size={isDesktop ? 'medium' : 'small'}
+                  afterRate={afterAlbumRate}
                 />
               </div>
             )}
