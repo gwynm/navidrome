@@ -12,7 +12,12 @@ import { useDataProvider, useNotify, useTranslate } from 'react-admin'
 import { useCallback, useMemo, useState, useEffect } from 'react'
 import Lightbox from 'react-image-lightbox'
 import 'react-image-lightbox/style.css'
-import { CollapsibleComment, DurationField, SizeField } from '../common'
+import {
+  CollapsibleComment,
+  DurationField,
+  KeywordsDisplay,
+  SizeField,
+} from '../common'
 import config from '../config'
 import subsonic from '../subsonic'
 
@@ -241,6 +246,7 @@ const PlaylistDetails = (props) => {
                 />
               </div>
             )}
+            <KeywordsDisplay playlistId={record.id} />
             <CollapsibleComment record={record} />
           </CardContent>
         </div>

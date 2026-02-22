@@ -26,6 +26,7 @@ import {
   CollapsibleComment,
   DurationField,
   formatRange,
+  KeywordsDisplay,
   LoveButton,
   RatingField,
   SizeField,
@@ -349,6 +350,7 @@ const AlbumDetails = (props) => {
               </div>
             )}
             <AlbumTagFields size={isDesktop ? 'medium' : 'small'} />
+            <KeywordsDisplay albumId={record.id} />
             {isDesktop ? (
               <GenreList />
             ) : (

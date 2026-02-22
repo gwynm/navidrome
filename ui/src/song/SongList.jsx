@@ -26,6 +26,7 @@ import {
   SongSimpleList,
   RatingField,
   EnergyField,
+  KeywordsField,
   MoodField,
   useResourceRefresh,
   useSongsPerPage,
@@ -217,6 +218,9 @@ const SongList = (props) => {
           render={(r) => r.tags?.instrumentalness?.[0] || ''}
         />
       ),
+      keywords: isDesktop && (
+        <KeywordsField source="keywords" resource="song" />
+      ),
       comment: <TextField source="comment" />,
       path: <PathField source="path" />,
       createdAt: (
@@ -240,6 +244,7 @@ const SongList = (props) => {
       'energyVal',
       'happiness',
       'instrumentalness',
+      'keywords',
       'comment',
       'path',
       'createdAt',

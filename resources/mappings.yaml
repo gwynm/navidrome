@@ -215,6 +215,10 @@ additional:
   grouping:
     aliases: [ grp1, grouping, ©grp, wm/contentgroupdescription ]
     album: true
+  keyword:
+    aliases: [ txxx:keywords, keywords ]
+    split: [ ";", "," ]
+    album: true
   key:
     aliases: [ tkey, key, ----:com.apple.itunes:initialkey, wm/initialkey ]
   isrc:

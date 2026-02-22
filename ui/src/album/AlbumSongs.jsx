@@ -19,6 +19,7 @@ import {
   DateField,
   DurationField,
   EnergyField,
+  KeywordsField,
   MoodField,
   QualityInfo,
   RatingField,
@@ -157,6 +158,9 @@ const AlbumSongs = (props) => {
           sortable={false}
         />
       ),
+      keywords: isDesktop && (
+        <KeywordsField source="keywords" resource="song" sortable={false} />
+      ),
       rating: isDesktop && config.enableStarRating && (
         <RatingField
           resource={'song'}
@@ -185,6 +189,7 @@ const AlbumSongs = (props) => {
       'energyVal',
       'happiness',
       'instrumentalness',
+      'keywords',
       'genre',
     ],
   })

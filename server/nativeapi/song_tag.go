@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -39,9 +40,19 @@ type setMoodResponse struct {
 	Mood string `json:"mood"`
 }
 
+type setKeywordsRequest struct {
+	Values []string `json:"values"`
+}
+
+type setKeywordsResponse struct {
+	ID       string   `json:"id"`
+	Keywords []string `json:"keywords"`
+}
+
 func (api *Router) addSongTagRoute(r chi.Router) {
 	r.With(server.URLParamsMiddleware).Put("/song/{id}/energy", setEnergy(api.ds))
 	r.With(server.URLParamsMiddleware).Put("/song/{id}/mood", setMood(api.ds))
+	r.With(server.URLParamsMiddleware).Put("/song/{id}/keywords", setKeywords(api.ds))
 }
 
 func setEnergy(ds model.DataStore) http.HandlerFunc {
@@ -189,5 +200,88 @@ func setMood(ds model.DataStore) http.HandlerFunc {
 		}
 
 		log.Info(ctx, "Set mood tag", "id", id, "path", mf.Path, "value", req.Value)
+	}
+}
+
+func setKeywords(ds model.DataStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		id := chi.URLParam(r, "id")
+
+		var req setKeywordsRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			log.Error(ctx, "Failed to decode request body", err)
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		// Deduplicate and clean values
+		seen := map[string]bool{}
+		var cleaned []string
+		for _, v := range req.Values {
+			v = strings.TrimSpace(v)
+			if v != "" && !seen[v] {
+				seen[v] = true
+				cleaned = append(cleaned, v)
+			}
+		}
+
+		mf, err := ds.MediaFile(ctx).Get(id)
+		if err != nil {
+			if errors.Is(err, model.ErrNotFound) {
+				http.Error(w, "Song not found", http.StatusNotFound)
+				return
+			}
+			log.Error(ctx, "Failed to get media file", "id", id, err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		fullPath := filepath.Join(mf.LibraryPath, mf.Path)
+
+		fileValue := strings.Join(cleaned, ";")
+		if err := taglib.WriteTag(fullPath, "KEYWORDS", fileValue); err != nil {
+			log.Error(ctx, "Failed to write keywords tag", "path", fullPath, err)
+			http.Error(w, "Failed to write tag to file: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if mf.Tags == nil {
+			mf.Tags = make(model.Tags)
+		}
+		if len(cleaned) == 0 {
+			delete(mf.Tags, model.TagKeyword)
+		} else {
+			mf.Tags[model.TagKeyword] = cleaned
+		}
+
+		mf.UpdatedAt = time.Now()
+		if err := ds.MediaFile(ctx).Put(mf); err != nil {
+			log.Error(ctx, "Failed to update media file", "id", id, err)
+			http.Error(w, "Failed to update database", http.StatusInternalServerError)
+			return
+		}
+
+		// Register new keyword tags for autocomplete
+		if len(cleaned) > 0 {
+			var tags []model.Tag
+			for _, v := range cleaned {
+				tags = append(tags, model.NewTag(model.TagKeyword, v))
+			}
+			if err := ds.Tag(ctx).Add(mf.LibraryID, tags...); err != nil {
+				log.Error(ctx, "Failed to add keyword tags", "id", id, err)
+			}
+		}
+
+		resp := setKeywordsResponse{
+			ID:       id,
+			Keywords: cleaned,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			log.Error(ctx, "Failed to encode response", err)
+		}
+
+		log.Info(ctx, "Set keywords", "id", id, "path", mf.Path, "keywords", cleaned)
 	}
 }

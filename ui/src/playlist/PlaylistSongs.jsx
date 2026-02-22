@@ -18,6 +18,7 @@ import ReactDragListView from 'react-drag-listview'
 import {
   DurationField,
   EnergyField,
+  KeywordsField,
   MoodField,
   SongInfo,
   SongContextMenu,
@@ -192,6 +193,9 @@ const PlaylistSongs = ({ playlistId, readOnly, actions, ...props }) => {
           render={(r) => r.tags?.instrumentalness?.[0] || ''}
         />
       ),
+      keywords: isDesktop && (
+        <KeywordsField source="keywords" resource="song" />
+      ),
       rating: config.enableStarRating && (
         <RatingField
           source="rating"
@@ -219,6 +223,7 @@ const PlaylistSongs = ({ playlistId, readOnly, actions, ...props }) => {
       'energyVal',
       'happiness',
       'instrumentalness',
+      'keywords',
       'rating',
     ],
   })

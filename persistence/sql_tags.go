@@ -83,6 +83,7 @@ func newBaseTagRepository(ctx context.Context, db dbx.Builder, tagFilter *model.
 	r.tableName = "tag"
 	r.registerModel(&model.Tag{}, map[string]filterFunc{
 		"name":       containsFilter("tag_value"),
+		"tag_name":   func(_ string, value any) Sqlizer { return Eq{"tag.tag_name": value} },
 		"library_id": tagLibraryIdFilter,
 	})
 	r.setSortMappings(map[string]string{
