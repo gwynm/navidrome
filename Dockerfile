@@ -2,7 +2,7 @@ FROM --platform=$BUILDPLATFORM ghcr.io/crazy-max/osxcross:14.5-debian AS osxcros
 
 ########################################################################################################################
 ### Build xx (original image: tonistiigi/xx)
-FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/alpine:3.20 AS xx-build
+FROM --platform=$BUILDPLATFORM alpine:3.20 AS xx-build
 
 # v1.9.0
 ENV XX_VERSION=a5592eab7a57895e8d385394ff12241bc65ecd50
@@ -26,7 +26,7 @@ COPY --from=xx-build /out/ /usr/bin/
 
 ########################################################################################################################
 ### Get TagLib
-FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/alpine:3.20 AS taglib-build
+FROM --platform=$BUILDPLATFORM alpine:3.20 AS taglib-build
 ARG TARGETPLATFORM
 ARG CROSS_TAGLIB_VERSION=2.1.1-2
 ENV CROSS_TAGLIB_RELEASES_URL=https://github.com/navidrome/cross-taglib/releases/download/v${CROSS_TAGLIB_VERSION}/
@@ -46,7 +46,7 @@ EOT
 
 ########################################################################################################################
 ### Build Navidrome UI
-FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/node:lts-alpine AS ui
+FROM --platform=$BUILDPLATFORM node:lts-alpine AS ui
 
 # node-gyp build deps for native modules (iltorb via react-music-player)
 RUN apk add -U --no-cache python3 make g++
@@ -67,7 +67,7 @@ COPY --from=ui /build /build
 
 ########################################################################################################################
 ### Build Navidrome binary
-FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/golang:1.25-trixie AS base
+FROM --platform=$BUILDPLATFORM golang:1.25-trixie AS base
 RUN apt-get update && apt-get install -y clang lld
 COPY --from=xx / /
 WORKDIR /workspace
@@ -127,7 +127,7 @@ COPY --from=build /out /
 
 ########################################################################################################################
 ### Build Final Image
-FROM public.ecr.aws/docker/library/alpine:3.20 AS final
+FROM alpine:3.20 AS final
 LABEL maintainer="deluan@navidrome.org"
 LABEL org.opencontainers.image.source="https://github.com/navidrome/navidrome"
 
