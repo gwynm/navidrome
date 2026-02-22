@@ -97,6 +97,7 @@ var mediaFileFilter = sync.OnceValue(func() map[string]filterFunc {
 		"title":           fullTextFilter("media_file", "mbz_recording_id", "mbz_release_track_id"),
 		"starred":         annotationBoolFilter("starred"),
 		"genre_id":        tagIDFilter,
+		"energy":          tagIDFilter,
 		"missing":         booleanFilter,
 		"artists_id":      artistFilter,
 		"library_id":      libraryIdFilter,
