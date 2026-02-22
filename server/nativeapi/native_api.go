@@ -79,6 +79,7 @@ func (api *Router) routes() http.Handler {
 		api.addPlaylistTrackRoute(r)
 		api.addSongPlaylistsRoute(r)
 		api.addSongTagRoute(r)
+		api.addKeywordRoute(r)
 		api.addAlbumLyricsRoute(r)
 		api.addPlaylistLyricsRoute(r)
 		api.addQueueRoute(r)

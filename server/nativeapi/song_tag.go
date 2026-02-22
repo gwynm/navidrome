@@ -273,6 +273,10 @@ func setKeywords(ds model.DataStore) http.HandlerFunc {
 			}
 		}
 
+		if err := ds.Tag(ctx).UpdateCounts(); err != nil {
+			log.Error(ctx, "Failed to update tag counts after keyword set", err)
+		}
+
 		resp := setKeywordsResponse{
 			ID:       id,
 			Keywords: cleaned,

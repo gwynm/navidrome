@@ -17,6 +17,7 @@ import radio from './radio'
 import share from './share'
 import library from './library'
 import plugin from './plugin'
+import keyword from './keyword'
 import { Player } from './audioplayer'
 import customRoutes from './routes'
 import {
@@ -103,6 +104,7 @@ const Admin = (props) => {
         <Resource name="artist" {...artist} />,
         <Resource name="song" {...song} />,
         <Resource name="potentialTrash" {...potentialTrash} />,
+        <Resource name="keyword" {...keyword} />,
         <Resource
           name="playlist"
           {...playlist}

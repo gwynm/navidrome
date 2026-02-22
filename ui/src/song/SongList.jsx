@@ -140,6 +140,23 @@ const SongFilter = (props) => {
           optionText="tagValue"
         />
       </ReferenceArrayInput>
+      <ReferenceArrayInput
+        label={translate('resources.song.fields.keywords')}
+        source="keyword"
+        reference="tag"
+        perPage={0}
+        sort={{ field: 'tagValue', order: 'ASC' }}
+        filter={{ tag_name: 'keyword' }}
+        filterToQuery={(searchText) => ({
+          tag_value: [searchText],
+        })}
+      >
+        <AutocompleteArrayInput
+          emptyText="-- None --"
+          classes={classes}
+          optionText="tagValue"
+        />
+      </ReferenceArrayInput>
       {config.enableFavourites && (
         <QuickFilter
           source="starred"

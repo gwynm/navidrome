@@ -245,6 +245,24 @@
         "noPlaylists": "No playlists available"
       }
     },
+    "keyword": {
+      "name": "Keyword |||| Keywords",
+      "fields": {
+        "name": "Name",
+        "trackCount": "Tracks"
+      },
+      "actions": {
+        "rename": "Rename Keyword",
+        "tracks": "Show Tracks",
+        "confirmDelete": "Delete Keyword",
+        "confirmDeleteMessage": "Are you sure you want to remove the keyword \"%{keyword}\" from all tracks?"
+      },
+      "notifications": {
+        "renamed": "Keyword renamed",
+        "deleted": "Keyword deleted from all tracks",
+        "error": "Failed to update keyword"
+      }
+    },
     "radio": {
       "name": "Radio |||| Radios",
       "fields": {
