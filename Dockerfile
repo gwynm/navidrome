@@ -47,6 +47,10 @@ EOT
 ########################################################################################################################
 ### Build Navidrome UI
 FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/node:lts-alpine AS ui
+
+# node-gyp build deps for native modules (iltorb via react-music-player)
+RUN apk add -U --no-cache python3 make g++
+
 WORKDIR /app
 
 # Install node dependencies

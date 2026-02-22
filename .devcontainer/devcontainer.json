@@ -11,6 +11,10 @@
 			"CROSS_TAGLIB_VERSION": "2.1.1-1"
 		}
 	},
+	"features": {
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": { "moby": false },
+		"ghcr.io/devcontainers/features/aws-cli:1": {}
+	},
 	"workspaceMount": "",
 	"runArgs": [
 		"--cap-add=SYS_PTRACE",

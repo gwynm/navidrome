@@ -99,11 +99,7 @@ Here are some useful direct links:
 * Make your changes
 * Test with `make pre-push` 
 * `git push` from inside the container (because it uses git hooks to run the tests). VSCode/Cursor do SSH agent forwarding by default so this should work. If it doesn't, see if you need to do `ssh-add <keyfile>` on your host system.
-* Deployment: Build and push a docker image:
-  * `aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws`
-  * `DOCKER_TAG=gwynm/navidrome:develop IMAGE_PLATFORMS=linux/amd64 make docker-image`
-  * `docker push gwynm/navidrome:develop`
-  * On your server eg, `docker compose up -d navidrome`
+* Deployment to the NUC: `scripts/deploy.sh` (builds the image, transfers it via `docker save`/`docker load` over SSH, and restarts the container). Requires SSH access to `nuc@nuc.fritz.box`. Override defaults with env vars: `DOCKER_TAG`, `IMAGE_PLATFORMS`, `NUC_HOST`, `NUC_COMPOSE_DIR`.
 
 ## Workflow
 
