@@ -29,7 +29,7 @@ COPY --from=xx-build /out/ /usr/bin/
 FROM --platform=$BUILDPLATFORM node:lts-alpine AS ui
 
 # node-gyp build deps for native modules (iltorb via react-music-player)
-RUN apk add -U --no-cache python3 make g++
+RUN apk add -U --no-cache python3 make g++ git
 
 WORKDIR /app
 
@@ -47,7 +47,7 @@ COPY --from=ui /build /build
 
 ########################################################################################################################
 ### Build Navidrome binary for Docker image (dynamic musl, enables native libwebp via dlopen)
-FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/golang:1.25-alpine AS build-alpine
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS build-alpine
 COPY --from=xx / /
 
 ARG TARGETPLATFORM
@@ -86,7 +86,7 @@ EOT
 
 ########################################################################################################################
 ### Build Navidrome binary for standalone distribution (static glibc, cross-compiled)
-FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/golang:1.25-trixie AS base
+FROM --platform=$BUILDPLATFORM golang:1.25-trixie AS base
 RUN apt-get update && apt-get install -y clang lld
 COPY --from=xx / /
 WORKDIR /workspace
