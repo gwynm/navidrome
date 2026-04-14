@@ -9,7 +9,7 @@ import (
 
 	"github.com/Masterminds/squirrel"
 	"github.com/go-chi/chi/v5"
-	"github.com/navidrome/navidrome/adapters/taglib"
+	taglib "github.com/navidrome/navidrome/adapters/gotaglib"
 	"github.com/navidrome/navidrome/core/lyrics"
 	"github.com/navidrome/navidrome/log"
 	"github.com/navidrome/navidrome/model"

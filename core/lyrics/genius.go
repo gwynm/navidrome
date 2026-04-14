@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/navidrome/navidrome/adapters/taglib"
+	taglib "github.com/navidrome/navidrome/adapters/gotaglib"
 	"github.com/navidrome/navidrome/log"
 	"github.com/navidrome/navidrome/model"
 )
