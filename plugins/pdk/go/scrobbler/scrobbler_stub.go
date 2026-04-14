@@ -59,7 +59,7 @@ type ScrobbleRequest struct {
 	Timestamp int64 `json:"timestamp"`
 }
 
-// TrackInfo contains track metadata for scrobbling.
+// TrackInfo contains track metadata.
 type TrackInfo struct {
 	// ID is the internal Navidrome track ID.
 	ID string `json:"id"`
@@ -89,6 +89,9 @@ type TrackInfo struct {
 	MBZReleaseGroupID string `json:"mbzReleaseGroupId,omitempty"`
 	// MBZReleaseTrackID is the MusicBrainz release track ID.
 	MBZReleaseTrackID string `json:"mbzReleaseTrackId,omitempty"`
+	// Path is the full path to the track file, relative to the library root.
+	// Only included if the plugin has library permission with filesystem access for the track's library.
+	Path string `json:"path,omitempty"`
 }
 
 // Scrobbler requires all methods to be implemented.

@@ -18,7 +18,7 @@ import (
 // ImageURL generates a public URL for artwork images.
 // It creates a signed token for the artwork ID and builds a complete public URL.
 func ImageURL(req *http.Request, artID model.ArtworkID, size int) string {
-	token, _ := auth.CreatePublicToken(map[string]any{"id": artID.String()})
+	token, _ := auth.CreatePublicToken(auth.Claims{ID: artID.String()})
 	uri := path.Join(consts.URLPathPublicImages, token)
 	params := url.Values{}
 	if size > 0 {
@@ -45,6 +45,9 @@ func PublicURL(req *http.Request, u string, params url.Values) string {
 	}
 	buildUrl.Scheme = shareUrl.Scheme
 	buildUrl.Host = shareUrl.Host
+	if basePath := strings.TrimRight(shareUrl.Path, "/"); basePath != "" {
+		buildUrl.Path = path.Join(basePath, buildUrl.Path)
+	}
 	if len(params) > 0 {
 		buildUrl.RawQuery = params.Encode()
 	}

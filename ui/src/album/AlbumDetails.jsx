@@ -19,6 +19,7 @@ import {
   useTranslate,
 } from 'react-admin'
 import Lightbox from 'react-image-lightbox'
+import config from '../config'
 import 'react-image-lightbox/style.css'
 import subsonic from '../subsonic'
 import {
@@ -31,8 +32,8 @@ import {
   RatingField,
   SizeField,
   useAlbumsPerPage,
+  useImageLoadingState,
 } from '../common'
-import config from '../config'
 import { formatFullDate, intersperse } from '../utils'
 import AlbumExternalLinks from './AlbumExternalLinks'
 import AlbumTagFields from './AlbumTagFields'
@@ -224,11 +225,17 @@ const AlbumDetails = (props) => {
   const isDesktop = useMediaQuery((theme) => theme.breakpoints.up('lg'))
   const classes = useStyles()
   const dataProvider = useDataProvider()
-  const [isLightboxOpen, setLightboxOpen] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const [albumInfo, setAlbumInfo] = useState()
-  const [imageLoading, setImageLoading] = useState(false)
-  const [imageError, setImageError] = useState(false)
+  const {
+    imageLoading,
+    imageError,
+    isLightboxOpen,
+    handleImageLoad,
+    handleImageError,
+    handleOpenLightbox,
+    handleCloseLightbox,
+  } = useImageLoadingState(record.id)
 
   let notes = albumInfo?.notes || record.notes
 
@@ -251,32 +258,8 @@ const AlbumDetails = (props) => {
       })
   }, [record])
 
-  // Reset image state when album changes
-  useEffect(() => {
-    setImageLoading(true)
-    setImageError(false)
-  }, [record.id])
-
-  const imageUrl = subsonic.getCoverArtUrl(record, 300)
+  const imageUrl = subsonic.getCoverArtUrl(record, config.uiCoverArtSize)
   const fullImageUrl = subsonic.getCoverArtUrl(record)
-
-  const handleImageLoad = useCallback(() => {
-    setImageLoading(false)
-    setImageError(false)
-  }, [])
-
-  const handleImageError = useCallback(() => {
-    setImageLoading(false)
-    setImageError(true)
-  }, [])
-
-  const handleOpenLightbox = useCallback(() => {
-    if (!imageError) {
-      setLightboxOpen(true)
-    }
-  }, [imageError])
-
-  const handleCloseLightbox = useCallback(() => setLightboxOpen(false), [])
 
   const afterAlbumRate = useCallback(
     async (val) => {
@@ -293,6 +276,7 @@ const AlbumDetails = (props) => {
     },
     [dataProvider, record.id],
   )
+
 
   return (
     <Card className={classes.root}>

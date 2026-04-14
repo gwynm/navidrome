@@ -1,8 +1,10 @@
 GO_VERSION=$(shell grep "^go " go.mod | cut -f 2 -d ' ')
 NODE_VERSION=$(shell cat .nvmrc)
 
+comma:=,
+GO_BUILD_TAGS=netgo,sqlite_fts5$(if $(EXTRA_BUILD_TAGS),$(comma)$(EXTRA_BUILD_TAGS))
+
 # Set global environment variables, required for most targets
-export CGO_CFLAGS_ALLOW=--define-prefix
 export ND_ENABLEINSIGHTSCOLLECTOR=false
 
 ifneq ("$(wildcard .git/HEAD)","")
@@ -18,9 +20,7 @@ IMAGE_PLATFORMS ?= $(shell echo $(SUPPORTED_PLATFORMS) | tr ',' '\n' | grep "lin
 PLATFORMS ?= $(SUPPORTED_PLATFORMS)
 DOCKER_TAG ?= deluan/navidrome:develop
 
-# Taglib version to use in cross-compilation, from https://github.com/navidrome/cross-taglib
-CROSS_TAGLIB_VERSION ?= 2.1.1-2
-GOLANGCI_LINT_VERSION ?= v2.10.0
+GOLANGCI_LINT_VERSION ?= v2.11.1
 
 UI_SRC_FILES := $(shell find ui -type f -not -path "ui/build/*" -not -path "ui/node_modules/*")
 
@@ -46,12 +46,12 @@ stop: ##@Development Stop development servers (UI and backend)
 .PHONY: stop
 
 watch: ##@Development Start Go tests in watch mode (re-run when code changes)
-	go tool ginkgo watch -tags=netgo -notify ./...
+	go tool ginkgo watch -tags=$(GO_BUILD_TAGS) -notify ./...
 .PHONY: watch
 
 PKG ?= ./...
 test: ##@Development Run Go tests. Use PKG variable to specify packages to test, e.g. make test PKG=./server
-	go test -tags netgo $(PKG)
+	go test -tags $(GO_BUILD_TAGS) $(PKG)
 .PHONY: test
 
 test-ndpgen: ##@Development Run tests for ndpgen plugin
@@ -62,7 +62,7 @@ testall: test test-ndpgen test-i18n test-js ##@Development Run Go and JS tests
 .PHONY: testall
 
 test-race: ##@Development Run Go tests with race detector
-	go test -tags netgo -race -shuffle=on  $(PKG)
+	go test -tags $(GO_BUILD_TAGS) -race -shuffle=on  $(PKG)
 .PHONY: test-race
 
 test-js: ##@Development Run JS tests
@@ -108,7 +108,7 @@ format: ##@Development Format code
 .PHONY: format
 
 wire: check_go_env ##@Development Update Dependency Injection
-	go tool wire gen -tags=netgo ./...
+	go tool wire gen -tags="$$(echo '$(GO_BUILD_TAGS)' | tr ',' ' ')" ./...
 .PHONY: wire
 
 gen: check_go_env ##@Development Run go generate for code generation
@@ -144,14 +144,14 @@ setup-git: ##@Development Setup Git hooks (pre-commit and pre-push)
 .PHONY: setup-git
 
 build: check_go_env buildjs ##@Build Build the project
-	go build -ldflags="-X github.com/navidrome/navidrome/consts.gitSha=$(GIT_SHA) -X github.com/navidrome/navidrome/consts.gitTag=$(GIT_TAG)" -tags=netgo
+	go build -ldflags="-X github.com/navidrome/navidrome/consts.gitSha=$(GIT_SHA) -X github.com/navidrome/navidrome/consts.gitTag=$(GIT_TAG)" -tags=$(GO_BUILD_TAGS)
 .PHONY: build
 
 buildall: deprecated build
 .PHONY: buildall
 
 debug-build: check_go_env buildjs ##@Build Build the project (with remote debug on)
-	go build -gcflags="all=-N -l" -ldflags="-X github.com/navidrome/navidrome/consts.gitSha=$(GIT_SHA) -X github.com/navidrome/navidrome/consts.gitTag=$(GIT_TAG)" -tags=netgo
+	go build -gcflags="all=-N -l" -ldflags="-X github.com/navidrome/navidrome/consts.gitSha=$(GIT_SHA) -X github.com/navidrome/navidrome/consts.gitTag=$(GIT_TAG)" -tags=$(GO_BUILD_TAGS)
 .PHONY: debug-build
 
 buildjs: check_node_env ui/build/index.html ##@Build Build only frontend
@@ -176,7 +176,6 @@ docker-build: ##@Cross_Compilation Cross-compile for any supported platform (che
 		--platform $(PLATFORMS) \
 		--build-arg GIT_TAG=${GIT_TAG} \
 		--build-arg GIT_SHA=${GIT_SHA} \
-		--build-arg CROSS_TAGLIB_VERSION=${CROSS_TAGLIB_VERSION} \
 		--output "./binaries" --target binary .
 .PHONY: docker-build
 
@@ -188,7 +187,6 @@ docker-image: ##@Cross_Compilation Build Docker image, tagged as `deluan/navidro
 		--platform $(IMAGE_PLATFORMS) \
 		--build-arg GIT_TAG=${GIT_TAG} \
 		--build-arg GIT_SHA=${GIT_SHA} \
-		--build-arg CROSS_TAGLIB_VERSION=${CROSS_TAGLIB_VERSION} \
 		--tag $(DOCKER_TAG) .
 .PHONY: docker-image
 
@@ -201,8 +199,8 @@ docker-msi: ##@Cross_Compilation Build MSI installer for Windows
 	@du -h binaries/msi/*.msi
 .PHONY: docker-msi
 
-run-docker: ##@Development Run a Navidrome Docker image. Usage: make run-docker tag=<tag>
-	@if [ -z "$(tag)" ]; then echo "Usage: make run-docker tag=<tag>"; exit 1; fi
+docker-run: ##@Development Run a Navidrome Docker image. Usage: make docker-run tag=<tag>
+	@if [ -z "$(tag)" ]; then echo "Usage: make docker-run tag=<tag>"; exit 1; fi
 	@TAG_DIR="tmp/$$(echo '$(tag)' | tr '/:' '_')"; mkdir -p "$$TAG_DIR"; \
     VOLUMES="-v $(PWD)/$$TAG_DIR:/data"; \
 	if [ -f navidrome.toml ]; then \
@@ -213,7 +211,7 @@ run-docker: ##@Development Run a Navidrome Docker image. Usage: make run-docker 
 	  	fi; \
 	fi; \
 	echo "Running: docker run --rm -p 4533:4533 $$VOLUMES $(tag)"; docker run --rm -p 4533:4533 $$VOLUMES $(tag)
-.PHONY: run-docker
+.PHONY: docker-run
 
 package: docker-build ##@Cross_Compilation Create binaries and packages for ALL supported platforms
 	@if [ -z `which goreleaser` ]; then echo "Please install goreleaser first: https://goreleaser.com/install/"; exit 1; fi
@@ -231,6 +229,39 @@ get-music: ##@Development Download some free music from Navidrome's demo instanc
 	@echo "Done. Remember to set your MusicFolder to ./music"
 .PHONY: get-music
 
+
+##########################################
+#### Worktrees
+
+WORKTREES_DIR := .worktrees
+
+wt: check_go_env ##@Worktrees Create and setup a git worktree. Usage: make wt name=feature-name [go=1]
+	@if [ -z "${name}" ]; then echo "Usage: make wt name=<branch-name> [go=1]"; exit 1; fi
+	@mkdir -p $(WORKTREES_DIR)
+	@echo "Creating worktree for branch '${name}'..."
+	@git worktree add $(WORKTREES_DIR)/${name} -b ${name} 2>/dev/null || \
+		git worktree add $(WORKTREES_DIR)/${name} ${name}
+	@if [ -n "${go}" ]; then \
+		./scripts/setup-worktree.sh $(WORKTREES_DIR)/${name} --go-only; \
+	else \
+		./scripts/setup-worktree.sh $(WORKTREES_DIR)/${name}; \
+	fi
+	@echo "\nWorktree ready at $(WORKTREES_DIR)/${name}"
+	@echo "  cd $(WORKTREES_DIR)/${name}"
+.PHONY: wt
+
+rm-wt: ##@Worktrees Remove a git worktree. Usage: make rm-wt name=feature-name
+	@if [ -z "${name}" ]; then echo "Usage: make rm-wt name=<branch-name>"; exit 1; fi
+	@if [ ! -d "$(WORKTREES_DIR)/${name}" ]; then echo "Worktree '${name}' not found in $(WORKTREES_DIR)/"; exit 1; fi
+	@echo "Removing worktree '${name}'..."
+	@git worktree remove --force $(WORKTREES_DIR)/${name}
+	@echo "Worktree '${name}' removed."
+	@echo "Note: branch '${name}' still exists. Delete it with: git branch -D ${name}"
+.PHONY: rm-wt
+
+ls-wt: ##@Worktrees List all active git worktrees
+	@git worktree list
+.PHONY: ls-wt
 
 ##########################################
 #### Miscellaneous

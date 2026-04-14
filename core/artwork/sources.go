@@ -15,8 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dhowden/tag"
-	"github.com/navidrome/navidrome/conf"
 	"github.com/navidrome/navidrome/consts"
 	"github.com/navidrome/navidrome/core/external"
 	"github.com/navidrome/navidrome/core/ffmpeg"
@@ -86,58 +84,6 @@ var picTypeRegexes = []*regexp.Regexp{
 }
 
 func fromTag(ctx context.Context, path string) sourceFunc {
-	if conf.Server.DevLegacyEmbedImage {
-		return fromTagLegacy(ctx, path)
-	}
-	return fromTagGoTaglib(ctx, path)
-}
-
-func fromTagLegacy(ctx context.Context, path string) sourceFunc {
-	return func() (io.ReadCloser, string, error) {
-		if path == "" {
-			return nil, "", nil
-		}
-		f, err := os.Open(path)
-		if err != nil {
-			return nil, "", err
-		}
-		defer f.Close()
-
-		m, err := tag.ReadFrom(f)
-		if err != nil {
-			return nil, "", err
-		}
-
-		types := m.PictureTypes()
-		if len(types) == 0 {
-			return nil, "", fmt.Errorf("no embedded image found in %s", path)
-		}
-
-		var picture *tag.Picture
-		for _, regex := range picTypeRegexes {
-			for _, t := range types {
-				if regex.MatchString(t) {
-					log.Trace(ctx, "Found embedded image", "type", t, "path", path)
-					picture = m.Pictures(t)
-					break
-				}
-			}
-			if picture != nil {
-				break
-			}
-		}
-		if picture == nil {
-			log.Trace(ctx, "Could not find a front image. Getting the first one", "type", types[0], "path", path)
-			picture = m.Picture()
-		}
-		if picture == nil {
-			return nil, "", fmt.Errorf("could not load embedded image from %s", path)
-		}
-		return io.NopCloser(bytes.NewReader(picture.Data)), path, nil
-	}
-}
-
-func fromTagGoTaglib(ctx context.Context, path string) sourceFunc {
 	return func() (io.ReadCloser, string, error) {
 		if path == "" {
 			return nil, "", nil
@@ -184,8 +130,23 @@ func fromFFmpegTag(ctx context.Context, ffmpeg ffmpeg.FFmpeg, path string) sourc
 		if err != nil {
 			return nil, "", err
 		}
-		return r, path, nil
+		// Validate that the stream actually contains image data by reading the first byte.
+		// ffmpeg.ExtractImage returns a pipe reader that may fail asynchronously if the
+		// file has no video/image stream (e.g., an MP3 without embedded art).
+		buf := make([]byte, 1)
+		n, err := r.Read(buf)
+		if n == 0 || err != nil {
+			r.Close()
+			return nil, "", fmt.Errorf("ffmpeg produced no image data for %s: %w", path, err)
+		}
+		return readCloser{Reader: io.MultiReader(bytes.NewReader(buf[:n]), r), Closer: r}, path, nil
 	}
+}
+
+// readCloser combines a Reader and a Closer into an io.ReadCloser.
+type readCloser struct {
+	io.Reader
+	io.Closer
 }
 
 func fromAlbum(ctx context.Context, a *artwork, id model.ArtworkID) sourceFunc {

@@ -10,6 +10,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/navidrome/navidrome/conf"
 	"github.com/navidrome/navidrome/consts"
@@ -17,6 +18,7 @@ import (
 	"github.com/navidrome/navidrome/model"
 	"github.com/navidrome/navidrome/model/request"
 	"github.com/navidrome/navidrome/server/subsonic/responses"
+	. "github.com/navidrome/navidrome/utils/gg"
 	"github.com/navidrome/navidrome/utils/number"
 	"github.com/navidrome/navidrome/utils/req"
 	"github.com/navidrome/navidrome/utils/slice"
@@ -197,7 +199,7 @@ func childFromMediaFile(ctx context.Context, mf model.MediaFile) responses.Child
 	}
 
 	child.Parent = mf.AlbumID
-	child.Album = mf.Album
+	child.Album = mf.FullAlbumName()
 	child.Year = int32(mf.Year)
 	child.Artist = mf.Artist
 	child.Genre = mf.Genre
@@ -215,7 +217,7 @@ func childFromMediaFile(ctx context.Context, mf model.MediaFile) responses.Child
 		child.Path = fakePath(mf)
 	}
 	child.DiscNumber = int32(mf.DiscNumber)
-	child.Created = &mf.BirthTime
+	child.Created = P(mf.BirthTime)
 	child.AlbumId = mf.AlbumID
 	child.ArtistId = mf.ArtistID
 	child.Type = "music"
@@ -302,7 +304,7 @@ func artistRefs(participants model.ParticipantList) []responses.ArtistID3Ref {
 func fakePath(mf model.MediaFile) string {
 	builder := strings.Builder{}
 
-	builder.WriteString(fmt.Sprintf("%s/%s/", sanitizeSlashes(mf.AlbumArtist), sanitizeSlashes(mf.Album)))
+	builder.WriteString(fmt.Sprintf("%s/%s/", sanitizeSlashes(mf.AlbumArtist), sanitizeSlashes(mf.FullAlbumName())))
 	if mf.DiscNumber != 0 {
 		builder.WriteString(fmt.Sprintf("%02d-", mf.DiscNumber))
 	}
@@ -317,18 +319,33 @@ func sanitizeSlashes(target string) string {
 	return strings.ReplaceAll(target, "/", "_")
 }
 
+// albumCreatedAt returns a best-effort timestamp for the album's `created`
+// field, which is required by the OpenSubsonic spec but may be zero on legacy
+// DB rows. Falls back to UpdatedAt → ImportedAt; can still return zero if all
+// three are unset.
+func albumCreatedAt(al model.Album) time.Time {
+	if !al.CreatedAt.IsZero() {
+		return al.CreatedAt
+	}
+	if !al.UpdatedAt.IsZero() {
+		return al.UpdatedAt
+	}
+	return al.ImportedAt
+}
+
 func childFromAlbum(ctx context.Context, al model.Album) responses.Child {
 	child := responses.Child{}
 	child.Id = al.ID
 	child.IsDir = true
-	child.Title = al.Name
-	child.Name = al.Name
-	child.Album = al.Name
+	fullName := al.FullName()
+	child.Title = fullName
+	child.Name = fullName
+	child.Album = fullName
 	child.Artist = al.AlbumArtist
 	child.Year = int32(cmp.Or(al.MaxOriginalYear, al.MaxYear))
 	child.Genre = al.Genre
 	child.CoverArt = al.CoverArtID().String()
-	child.Created = &al.CreatedAt
+	child.Created = P(albumCreatedAt(al))
 	child.Parent = al.AlbumArtistID
 	child.ArtistId = al.AlbumArtistID
 	child.Duration = int32(al.Duration)
@@ -390,8 +407,17 @@ func buildDiscSubtitles(a model.Album) []responses.DiscTitle {
 		return nil
 	}
 	var discTitles []responses.DiscTitle
+	// Hoist UpdatedAt to a single stack-local so &updatedAt doesn't force the
+	// whole model.Album parameter onto the heap.
+	updatedAt := a.UpdatedAt
 	for num, title := range a.Discs {
-		discTitles = append(discTitles, responses.DiscTitle{Disc: int32(num), Title: title})
+		artID := model.NewArtworkID(model.KindDiscArtwork,
+			model.DiscArtworkID(a.ID, num), &updatedAt)
+		discTitles = append(discTitles, responses.DiscTitle{
+			Disc:     int32(num),
+			Title:    title,
+			CoverArt: artID.String(),
+		})
 	}
 	if len(discTitles) == 1 && discTitles[0].Title == "" {
 		return nil
@@ -405,7 +431,7 @@ func buildDiscSubtitles(a model.Album) []responses.DiscTitle {
 func buildAlbumID3(ctx context.Context, album model.Album) responses.AlbumID3 {
 	dir := responses.AlbumID3{}
 	dir.Id = album.ID
-	dir.Name = album.Name
+	dir.Name = album.FullName()
 	dir.Artist = album.AlbumArtist
 	dir.ArtistId = album.AlbumArtistID
 	dir.CoverArt = album.CoverArtID().String()
@@ -414,9 +440,7 @@ func buildAlbumID3(ctx context.Context, album model.Album) responses.AlbumID3 {
 	dir.PlayCount = album.PlayCount
 	dir.Year = int32(cmp.Or(album.MaxOriginalYear, album.MaxYear))
 	dir.Genre = album.Genre
-	if !album.CreatedAt.IsZero() {
-		dir.Created = &album.CreatedAt
-	}
+	dir.Created = P(albumCreatedAt(album))
 	if album.Starred {
 		dir.Starred = album.StarredAt
 	}

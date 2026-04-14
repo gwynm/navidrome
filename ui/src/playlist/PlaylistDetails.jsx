@@ -16,7 +16,11 @@ import {
   CollapsibleComment,
   DurationField,
   KeywordsDisplay,
+  ImageUploadOverlay,
   SizeField,
+  isWritable,
+  OverflowTooltip,
+  useImageLoadingState,
 } from '../common'
 import config from '../config'
 import subsonic from '../subsonic'
@@ -63,6 +67,7 @@ const useStyles = makeStyles(
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
+      position: 'relative',
     },
     cover: {
       objectFit: 'contain',
@@ -163,36 +168,18 @@ const PlaylistDetails = (props) => {
   const translate = useTranslate()
   const classes = useStyles()
   const isDesktop = useMediaQuery((theme) => theme.breakpoints.up('lg'))
-  const [isLightboxOpen, setLightboxOpen] = useState(false)
-  const [imageLoading, setImageLoading] = useState(false)
-  const [imageError, setImageError] = useState(false)
+  const {
+    imageLoading,
+    imageError,
+    isLightboxOpen,
+    handleImageLoad,
+    handleImageError,
+    handleOpenLightbox,
+    handleCloseLightbox,
+  } = useImageLoadingState(record.id)
 
-  const imageUrl = subsonic.getCoverArtUrl(record, 300, true)
+  const imageUrl = subsonic.getCoverArtUrl(record, config.uiCoverArtSize, true)
   const fullImageUrl = subsonic.getCoverArtUrl(record)
-
-  // Reset image state when playlist changes
-  useEffect(() => {
-    setImageLoading(true)
-    setImageError(false)
-  }, [record.id])
-
-  const handleImageLoad = useCallback(() => {
-    setImageLoading(false)
-    setImageError(false)
-  }, [])
-
-  const handleImageError = useCallback(() => {
-    setImageLoading(false)
-    setImageError(true)
-  }, [])
-
-  const handleOpenLightbox = useCallback(() => {
-    if (!imageError) {
-      setLightboxOpen(true)
-    }
-  }, [imageError])
-
-  const handleCloseLightbox = useCallback(() => setLightboxOpen(false), [])
 
   return (
     <Card className={classes.root}>
@@ -213,15 +200,24 @@ const PlaylistDetails = (props) => {
               cursor: imageError ? 'default' : 'pointer',
             }}
           />
+          {isWritable(record.ownerId) && (
+            <ImageUploadOverlay
+              entityType="playlist"
+              entityId={record.id}
+              hasUploadedImage={!!record.uploadedImage}
+            />
+          )}
         </div>
         <div className={classes.details}>
           <CardContent className={classes.content}>
-            <Typography
-              variant={isDesktop ? 'h5' : 'h6'}
-              className={classes.title}
-            >
-              {record.name || translate('ra.page.loading')}
-            </Typography>
+            <OverflowTooltip title={record.name || ''}>
+              <Typography
+                variant={isDesktop ? 'h5' : 'h6'}
+                className={classes.title}
+              >
+                {record.name || translate('ra.page.loading')}
+              </Typography>
+            </OverflowTooltip>
             <Typography component="p" className={classes.stats}>
               {record.songCount ? (
                 <span>

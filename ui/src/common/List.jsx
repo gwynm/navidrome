@@ -1,5 +1,6 @@
 import React from 'react'
 import { List as RAList } from 'react-admin'
+import config from '../config'
 import { Pagination } from './Pagination'
 import { Title } from './index'
 import { defaultPageSize } from '../utils/pageSizes'
@@ -14,6 +15,7 @@ export const List = (props) => {
           args={{ smart_count: 2 }}
         />
       }
+      debounce={config.uiSearchDebounceMs}
       perPage={defaultPageSize()}
       pagination={<Pagination />}
       {...props}
