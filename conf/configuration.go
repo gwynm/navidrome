@@ -104,6 +104,7 @@ type configOptions struct {
 	Spotify                         spotifyOptions      `json:",omitzero"`
 	Deezer                          deezerOptions       `json:",omitzero"`
 	ListenBrainz                    listenBrainzOptions `json:",omitzero"`
+	OpenRouter                      openRouterOptions   `json:",omitzero"`
 	EnableScrobbleHistory           bool
 	Tags                            map[string]TagConf `json:",omitempty"`
 	Agents                          string
@@ -199,6 +200,11 @@ type listenBrainzOptions struct {
 	BaseURL         string
 	ArtistAlgorithm string
 	TrackAlgorithm  string
+}
+
+type openRouterOptions struct {
+	APIKey string
+	Model  string
 }
 
 type httpHeaderOptions struct {
@@ -652,6 +658,8 @@ func setViperDefaults() {
 	viper.SetDefault("spotify.secret", "")
 	viper.SetDefault("deezer.enabled", true)
 	viper.SetDefault("deezer.language", consts.DefaultInfoLanguage)
+	viper.SetDefault("openrouter.apikey", "")
+	viper.SetDefault("openrouter.model", "anthropic/claude-sonnet-4")
 	viper.SetDefault("listenbrainz.enabled", true)
 	viper.SetDefault("listenbrainz.baseurl", consts.DefaultListenBrainzBaseURL)
 	viper.SetDefault("listenbrainz.artistalgorithm", consts.DefaultListenBrainzArtistAlgorithm)

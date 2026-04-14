@@ -5,6 +5,7 @@ import clsx from 'clsx'
 import { useTranslate, MenuItemLink, getResources } from 'react-admin'
 import ViewListIcon from '@material-ui/icons/ViewList'
 import AlbumIcon from '@material-ui/icons/Album'
+import TuneIcon from '@material-ui/icons/Tune'
 import SubMenu from './SubMenu'
 import { humanize, pluralize } from 'inflection'
 import albumLists from '../album/albumLists'
@@ -126,6 +127,14 @@ const Menu = ({ dense = false }) => {
         )}
       </SubMenu>
       {resources.filter(subItems(undefined)).map(renderResourceMenuItemLink)}
+      <MenuItemLink
+        to="/robotdj"
+        activeClassName={classes.active}
+        primaryText="Robot DJ"
+        leftIcon={<TuneIcon />}
+        sidebarIsOpen={open}
+        dense={dense}
+      />
       {config.devSidebarPlaylists && open ? (
         <>
           <Divider />
