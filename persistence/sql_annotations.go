@@ -31,12 +31,16 @@ func (r sqlRepository) withAnnotation(query SelectBuilder, idField string) Selec
 			"play_date",
 			"rated_at",
 		)
+	globalPlayCount := fmt.Sprintf(
+		"coalesce((select sum(play_count) from annotation where item_id = %s and item_type = '%s'), 0)",
+		idField, r.tableName,
+	)
 	if conf.Server.AlbumPlayCountMode == consts.AlbumPlayCountModeNormalized && r.tableName == "album" {
 		query = query.Columns(
-			fmt.Sprintf("round(coalesce(round(cast(play_count as float) / coalesce(%[1]s.song_count, 1), 1), 0)) as play_count", r.tableName),
+			fmt.Sprintf("round(round(cast(%s as float) / coalesce(%s.song_count, 1), 1)) as play_count", globalPlayCount, r.tableName),
 		)
 	} else {
-		query = query.Columns("coalesce(play_count, 0) as play_count")
+		query = query.Columns(globalPlayCount + " as play_count")
 	}
 
 	query = query.Columns(fmt.Sprintf("%s.average_rating", r.tableName))

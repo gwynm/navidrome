@@ -125,6 +125,7 @@ func potentialTrashFilter(field string, value any) Sqlizer {
 		Expr("COALESCE(annotation.rating, 0) = 1"),
 		Expr("NOT EXISTS (SELECT 1 FROM annotation a2 WHERE a2.item_id = media_file.id AND a2.item_type = 'media_file' AND a2.user_id != annotation.user_id AND a2.rating > 1)"),
 		Expr("NOT EXISTS (SELECT 1 FROM playlist_tracks pt WHERE pt.media_file_id = media_file.id)"),
+		Expr("COALESCE((SELECT SUM(play_count) FROM annotation a3 WHERE a3.item_id = media_file.id AND a3.item_type = 'media_file'), 0) < 3"),
 	}
 }
 
