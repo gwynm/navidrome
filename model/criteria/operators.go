@@ -299,6 +299,34 @@ func (ipl NotInPlaylist) MarshalJSON() ([]byte, error) {
 	return marshalExpression("notInPlaylist", ipl)
 }
 
+type InAnyPlaylist struct{}
+
+func (iap InAnyPlaylist) ToSql() (sql string, args []any, err error) {
+	return inAnyList(false)
+}
+
+func (iap InAnyPlaylist) MarshalJSON() ([]byte, error) {
+	return []byte(`{"inAnyPlaylist":{}}`), nil
+}
+
+type NotInAnyPlaylist struct{}
+
+func (niap NotInAnyPlaylist) ToSql() (sql string, args []any, err error) {
+	return inAnyList(true)
+}
+
+func (niap NotInAnyPlaylist) MarshalJSON() ([]byte, error) {
+	return []byte(`{"notInAnyPlaylist":{}}`), nil
+}
+
+func inAnyList(negate bool) (sql string, args []any, err error) {
+	subQuery := "SELECT DISTINCT media_file_id FROM playlist_tracks"
+	if negate {
+		return "media_file.id NOT IN (" + subQuery + ")", nil, nil
+	}
+	return "media_file.id IN (" + subQuery + ")", nil, nil
+}
+
 func inList(m map[string]any, negate bool) (sql string, args []any, err error) {
 	var playlistid string
 	var ok bool

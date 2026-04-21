@@ -69,6 +69,10 @@ func unmarshalExpression(opName string, rawValue json.RawMessage) Expression {
 		return InPlaylist(m)
 	case "notinplaylist":
 		return NotInPlaylist(m)
+	case "inanyplaylist":
+		return InAnyPlaylist{}
+	case "notinanyplaylist":
+		return NotInAnyPlaylist{}
 	}
 	return nil
 }

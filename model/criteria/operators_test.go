@@ -51,6 +51,9 @@ var _ = Describe("Operators", func() {
 		Entry("notInPlaylist", NotInPlaylist{"id": "deadbeef-dead-beef"}, "media_file.id NOT IN "+
 			"(SELECT media_file_id FROM playlist_tracks pl LEFT JOIN playlist on pl.playlist_id = playlist.id WHERE (pl.playlist_id = ? AND playlist.public = ?))", "deadbeef-dead-beef", 1),
 
+		Entry("inAnyPlaylist", InAnyPlaylist{}, "media_file.id IN (SELECT DISTINCT media_file_id FROM playlist_tracks)"),
+		Entry("notInAnyPlaylist", NotInAnyPlaylist{}, "media_file.id NOT IN (SELECT DISTINCT media_file_id FROM playlist_tracks)"),
+
 		Entry("inTheLast", InTheLast{"lastPlayed": 30}, "annotation.play_date > ?", StartOfPeriod(30, time.Now())),
 		Entry("notInTheLast", NotInTheLast{"lastPlayed": 30}, "(annotation.play_date < ? OR annotation.play_date IS NULL)", StartOfPeriod(30, time.Now())),
 
@@ -223,5 +226,7 @@ var _ = Describe("Operators", func() {
 		Entry("notInTheLast", NotInTheLast{"lastPlayed": 30.0}, `{"notInTheLast":{"lastPlayed":30}}`),
 		Entry("inPlaylist", InPlaylist{"id": "deadbeef-dead-beef"}, `{"inPlaylist":{"id":"deadbeef-dead-beef"}}`),
 		Entry("notInPlaylist", NotInPlaylist{"id": "deadbeef-dead-beef"}, `{"notInPlaylist":{"id":"deadbeef-dead-beef"}}`),
+		Entry("inAnyPlaylist", InAnyPlaylist{}, `{"inAnyPlaylist":{}}`),
+		Entry("notInAnyPlaylist", NotInAnyPlaylist{}, `{"notInAnyPlaylist":{}}`),
 	)
 })
