@@ -320,7 +320,10 @@ func (niap NotInAnyPlaylist) MarshalJSON() ([]byte, error) {
 }
 
 func inAnyList(negate bool) (sql string, args []any, err error) {
-	subQuery := "SELECT DISTINCT media_file_id FROM playlist_tracks"
+	// Only consider non-smart playlists (rules IS NULL) to avoid
+	// circular dependencies with smart playlists that populate playlist_tracks.
+	subQuery := "SELECT DISTINCT pt.media_file_id FROM playlist_tracks pt " +
+		"JOIN playlist p ON pt.playlist_id = p.id WHERE p.rules IS NULL"
 	if negate {
 		return "media_file.id NOT IN (" + subQuery + ")", nil, nil
 	}
