@@ -257,7 +257,7 @@ const PlaylistSongs = ({ playlistId, readOnly, actions, ...props }) => {
             <SongDatagrid
               rowClick={(id) => dispatch(playTracks(data, ids, id))}
               {...listContext}
-              hasBulkActions={!readOnly}
+              hasBulkActions={true}
               contextAlwaysVisible={!isDesktop}
               classes={{ row: classes.row }}
             >

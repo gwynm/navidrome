@@ -1,4 +1,4 @@
-import React, { Fragment, useEffect } from 'react'
+import React, { Fragment, useEffect, useMemo } from 'react'
 import {
   BulkDeleteButton,
   useUnselectAll,
@@ -6,11 +6,14 @@ import {
 } from 'react-admin'
 import { MdOutlinePlaylistRemove } from 'react-icons/md'
 import PropTypes from 'prop-types'
+import { SongBulkActions } from '../common/SongBulkActions'
 
-// Replace original resource with "fake" one for removing tracks from playlist
 const PlaylistSongBulkActions = ({
   playlistId,
+  readOnly,
   resource,
+  selectedIds,
+  data,
   onUnselectItems,
   ...rest
 }) => {
@@ -19,19 +22,37 @@ const PlaylistSongBulkActions = ({
     unselectAll('playlistTrack')
   }, [unselectAll])
 
+  // Map playlist track IDs to song (mediaFile) IDs for bulk actions
+  const songIds = useMemo(
+    () =>
+      selectedIds
+        .map((id) => data[id]?.mediaFileId || data[id]?.id)
+        .filter(Boolean),
+    [selectedIds, data],
+  )
+
   const mappedResource = `playlist/${playlistId}/tracks`
   return (
-    <ResourceContextProvider value={mappedResource}>
-      <Fragment>
-        <BulkDeleteButton
-          {...rest}
-          label={'ra.action.remove'}
-          icon={<MdOutlinePlaylistRemove />}
-          resource={mappedResource}
-          onClick={onUnselectItems}
-        />
-      </Fragment>
-    </ResourceContextProvider>
+    <Fragment>
+      <SongBulkActions
+        {...rest}
+        selectedIds={songIds}
+        data={data}
+        resource="song"
+      />
+      {!readOnly && (
+        <ResourceContextProvider value={mappedResource}>
+          <BulkDeleteButton
+            {...rest}
+            selectedIds={selectedIds}
+            label={'ra.action.remove'}
+            icon={<MdOutlinePlaylistRemove />}
+            resource={mappedResource}
+            onClick={onUnselectItems}
+          />
+        </ResourceContextProvider>
+      )}
+    </Fragment>
   )
 }
 
