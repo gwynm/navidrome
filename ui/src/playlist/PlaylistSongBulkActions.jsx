@@ -2,6 +2,7 @@ import React, { Fragment, useEffect, useMemo } from 'react'
 import {
   BulkDeleteButton,
   useUnselectAll,
+  useListContext,
   ResourceContextProvider,
 } from 'react-admin'
 import { MdOutlinePlaylistRemove } from 'react-icons/md'
@@ -13,10 +14,10 @@ const PlaylistSongBulkActions = ({
   readOnly,
   resource,
   selectedIds,
-  data,
   onUnselectItems,
   ...rest
 }) => {
+  const { data } = useListContext()
   const unselectAll = useUnselectAll()
   useEffect(() => {
     unselectAll('playlistTrack')
@@ -26,7 +27,7 @@ const PlaylistSongBulkActions = ({
   const songIds = useMemo(
     () =>
       selectedIds
-        .map((id) => data[id]?.mediaFileId || data[id]?.id)
+        .map((id) => data?.[id]?.mediaFileId || data?.[id]?.id)
         .filter(Boolean),
     [selectedIds, data],
   )
@@ -37,7 +38,6 @@ const PlaylistSongBulkActions = ({
       <SongBulkActions
         {...rest}
         selectedIds={songIds}
-        data={data}
         resource="song"
       />
       {!readOnly && (
