@@ -36,8 +36,11 @@ func (r sqlRepository) withAnnotation(query SelectBuilder, idField string) Selec
 		idField, r.tableName,
 	)
 	if conf.Server.AlbumPlayCountMode == consts.AlbumPlayCountModeNormalized && r.tableName == "album" {
+		// Wrap the division in COALESCE to guard against albums with song_count = 0
+		// (division by zero yields NULL in SQLite) — e.g. freshly inserted albums
+		// before tracks are associated.
 		query = query.Columns(
-			fmt.Sprintf("round(round(cast(%s as float) / coalesce(%s.song_count, 1), 1)) as play_count", globalPlayCount, r.tableName),
+			fmt.Sprintf("round(coalesce(round(cast(%s as float) / coalesce(%s.song_count, 1), 1), 0)) as play_count", globalPlayCount, r.tableName),
 		)
 	} else {
 		query = query.Columns(globalPlayCount + " as play_count")

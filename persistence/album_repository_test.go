@@ -235,6 +235,17 @@ var _ = Describe("AlbumRepository", func() {
 	})
 
 	Describe("Album.PlayCount", func() {
+		// These tests mutate conf.Server.AlbumPlayCountMode; restore it so later
+		// specs (e.g. AverageRating, Annotation Filters) don't run in normalized
+		// mode and hit division-by-zero on bare albums (song_count = 0).
+		var savedPlayCountMode string
+		BeforeEach(func() {
+			savedPlayCountMode = conf.Server.AlbumPlayCountMode
+		})
+		AfterEach(func() {
+			conf.Server.AlbumPlayCountMode = savedPlayCountMode
+		})
+
 		// Implementation is in withAnnotation() method
 		DescribeTable("normalizes play count when AlbumPlayCountMode is absolute",
 			func(songCount, playCount, expected int) {
