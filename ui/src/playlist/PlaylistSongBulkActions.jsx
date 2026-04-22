@@ -35,11 +35,7 @@ const PlaylistSongBulkActions = ({
   const mappedResource = `playlist/${playlistId}/tracks`
   return (
     <Fragment>
-      <SongBulkActions
-        {...rest}
-        selectedIds={songIds}
-        resource="song"
-      />
+      <SongBulkActions {...rest} selectedIds={songIds} resource="song" />
       {!readOnly && (
         <ResourceContextProvider value={mappedResource}>
           <BulkDeleteButton

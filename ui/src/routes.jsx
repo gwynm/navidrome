@@ -5,7 +5,12 @@ import RobotDJCreate from './robotdj/RobotDJCreate'
 
 const routes = [
   <Route exact path="/personal" render={() => <Personal />} key={'personal'} />,
-  <Route exact path="/robotdj" render={() => <RobotDJCreate />} key={'robotdj'} />,
+  <Route
+    exact
+    path="/robotdj"
+    render={() => <RobotDJCreate />}
+    key={'robotdj'}
+  />,
 ]
 
 export default routes

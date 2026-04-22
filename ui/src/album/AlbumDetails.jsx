@@ -277,7 +277,6 @@ const AlbumDetails = (props) => {
     [dataProvider, record.id],
   )
 
-
   return (
     <Card className={classes.root}>
       <div className={classes.cardContents}>

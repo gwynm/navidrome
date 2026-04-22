@@ -295,11 +295,7 @@ const RobotDJCreate = () => {
                   onClick={handleConfirmPlaylist}
                   disabled={loading || preview.tracks.length === 0}
                 >
-                  {loading ? (
-                    <CircularProgress size={24} />
-                  ) : (
-                    'Create Playlist'
-                  )}
+                  {loading ? <CircularProgress size={24} /> : 'Create Playlist'}
                 </Button>
               </Box>
             </div>
@@ -307,10 +303,7 @@ const RobotDJCreate = () => {
         </CardContent>
       </Card>
 
-      <Dialog
-        open={!!confirmDialog}
-        onClose={() => setConfirmDialog(null)}
-      >
+      <Dialog open={!!confirmDialog} onClose={() => setConfirmDialog(null)}>
         <DialogTitle>Vibes Mode - Large Data Warning</DialogTitle>
         <DialogContent>
           <DialogContentText>
