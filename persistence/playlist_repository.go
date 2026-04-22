@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sync"
 	"time"
 
 	. "github.com/Masterminds/squirrel"
@@ -15,8 +16,20 @@ import (
 	"github.com/navidrome/navidrome/log"
 	"github.com/navidrome/navidrome/model"
 	"github.com/navidrome/navidrome/model/criteria"
+	"github.com/navidrome/navidrome/model/request"
 	"github.com/pocketbase/dbx"
 )
+
+// smartPlaylistRefreshLocks serializes concurrent refreshes of the same smart
+// playlist. Without this, two viewers hitting the playlist at the same time
+// (or even the owner in two browser tabs) could race DELETE/INSERT on
+// playlist_tracks and collide on the primary key.
+var smartPlaylistRefreshLocks sync.Map
+
+func lockForSmartPlaylistRefresh(playlistID string) *sync.Mutex {
+	v, _ := smartPlaylistRefreshLocks.LoadOrStore(playlistID, &sync.Mutex{})
+	return v.(*sync.Mutex)
+}
 
 type playlistRepository struct {
 	sqlRepository
@@ -208,19 +221,39 @@ func (r *playlistRepository) refreshSmartPlaylist(pls *model.Playlist) bool {
 		return false
 	}
 
-	// Never refresh other users' playlists
-	usr := loggedUser(r.ctx)
-	if pls.OwnerID != usr.ID {
-		log.Trace(r.ctx, "Not refreshing smart playlist from other user", "playlist", pls.Name, "id", pls.ID)
+	// Serialize concurrent refreshes of the same playlist (multiple viewers, multiple tabs).
+	mu := lockForSmartPlaylistRefresh(pls.ID)
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Re-check TTL against the DB: another goroutine may have just refreshed while we waited.
+	fresh, err := r.Get(pls.ID)
+	if err != nil {
+		log.Error(r.ctx, "Error reloading playlist for refresh", "id", pls.ID, err)
+		return false
+	}
+	if fresh.EvaluatedAt != nil && time.Since(*fresh.EvaluatedAt) < conf.Server.SmartPlaylistRefreshDelay {
+		pls.EvaluatedAt = fresh.EvaluatedAt
 		return false
 	}
 
-	log.Debug(r.ctx, "Refreshing smart playlist", "playlist", pls.Name, "id", pls.ID)
+	// Refresh runs under the owner's identity (their annotations, their library access)
+	// so every viewer sees the same materialized snapshot. The user-level context is
+	// only swapped for access control; cancellation still chains from the caller.
+	owner, err := NewUserRepository(r.ctx, r.db).Get(pls.OwnerID)
+	if err != nil {
+		log.Error(r.ctx, "Error loading playlist owner for refresh", "id", pls.ID, "ownerId", pls.OwnerID, err)
+		return false
+	}
+	ownerRepo := *r
+	ownerRepo.ctx = request.WithUser(r.ctx, *owner)
+
+	log.Debug(r.ctx, "Refreshing smart playlist", "playlist", pls.Name, "id", pls.ID, "ownerId", pls.OwnerID)
 	start := time.Now()
 
 	// Remove old tracks
 	del := Delete("playlist_tracks").Where(Eq{"playlist_id": pls.ID})
-	_, err := r.executeSQL(del)
+	_, err = ownerRepo.executeSQL(del)
 	if err != nil {
 		log.Error(r.ctx, "Error deleting old smart playlist tracks", "playlist", pls.Name, "id", pls.ID, err)
 		return false
@@ -229,29 +262,30 @@ func (r *playlistRepository) refreshSmartPlaylist(pls *model.Playlist) bool {
 	// Re-populate playlist based on Smart Playlist criteria
 	rules := *pls.Rules
 
-	// If the playlist depends on other playlists, recursively refresh them first
+	// If the playlist depends on other playlists, recursively refresh them first.
+	// Child lookups run under the owner's ACL so private dependencies resolve.
 	childPlaylistIds := rules.ChildPlaylistIds()
 	for _, id := range childPlaylistIds {
-		childPls, err := r.Get(id)
+		childPls, err := ownerRepo.Get(id)
 		if err != nil {
 			log.Error(r.ctx, "Error loading child playlist", "id", pls.ID, "childId", id, err)
 			return false
 		}
-		r.refreshSmartPlaylist(childPls)
+		ownerRepo.refreshSmartPlaylist(childPls)
 	}
 
 	sq := Select("row_number() over (order by "+rules.OrderBy()+") as id", "'"+pls.ID+"' as playlist_id", "media_file.id as media_file_id").
 		From("media_file").LeftJoin("annotation on ("+
 		"annotation.item_id = media_file.id"+
 		" AND annotation.item_type = 'media_file'"+
-		" AND annotation.user_id = ?)", usr.ID)
+		" AND annotation.user_id = ?)", owner.ID)
 
 	// Conditionally join album/artist annotation tables only when referenced by criteria or sort
 	requiredJoins := rules.RequiredJoins()
-	sq = r.addSmartPlaylistAnnotationJoins(sq, requiredJoins, usr.ID)
+	sq = ownerRepo.addSmartPlaylistAnnotationJoins(sq, requiredJoins, owner.ID)
 
-	// Only include media files from libraries the user has access to
-	sq = r.applyLibraryFilter(sq, "media_file")
+	// Only include media files from libraries the owner has access to
+	sq = ownerRepo.applyLibraryFilter(sq, "media_file")
 
 	// Resolve percentage-based limit to an absolute number before applying criteria
 	if rules.IsPercentageLimit() {
@@ -261,13 +295,13 @@ func (r *playlistRepository) refreshSmartPlaylist(pls *model.Playlist) bool {
 			LeftJoin("annotation on ("+
 				"annotation.item_id = media_file.id"+
 				" AND annotation.item_type = 'media_file'"+
-				" AND annotation.user_id = ?)", usr.ID)
-		countSq = r.addSmartPlaylistAnnotationJoins(countSq, exprJoins, usr.ID)
-		countSq = r.applyLibraryFilter(countSq, "media_file")
+				" AND annotation.user_id = ?)", owner.ID)
+		countSq = ownerRepo.addSmartPlaylistAnnotationJoins(countSq, exprJoins, owner.ID)
+		countSq = ownerRepo.applyLibraryFilter(countSq, "media_file")
 		countSq = countSq.Where(rules)
 
 		var res struct{ Count int64 }
-		err = r.queryOne(countSq, &res)
+		err = ownerRepo.queryOne(countSq, &res)
 		if err != nil {
 			log.Error(r.ctx, "Error counting matching tracks for percentage limit", "playlist", pls.Name, "id", pls.ID, err)
 			return false
@@ -279,16 +313,16 @@ func (r *playlistRepository) refreshSmartPlaylist(pls *model.Playlist) bool {
 	}
 
 	// Apply the criteria rules
-	sq = r.addCriteria(sq, rules)
+	sq = ownerRepo.addCriteria(sq, rules)
 	insSql := Insert("playlist_tracks").Columns("id", "playlist_id", "media_file_id").Select(sq)
-	_, err = r.executeSQL(insSql)
+	_, err = ownerRepo.executeSQL(insSql)
 	if err != nil {
 		log.Error(r.ctx, "Error refreshing smart playlist tracks", "playlist", pls.Name, "id", pls.ID, err)
 		return false
 	}
 
 	// Update playlist stats
-	err = r.refreshCounters(pls)
+	err = ownerRepo.refreshCounters(pls)
 	if err != nil {
 		log.Error(r.ctx, "Error updating smart playlist stats", "playlist", pls.Name, "id", pls.ID, err)
 		return false
@@ -297,7 +331,7 @@ func (r *playlistRepository) refreshSmartPlaylist(pls *model.Playlist) bool {
 	// Update when the playlist was last refreshed (for cache purposes)
 	now := time.Now()
 	updSql := Update(r.tableName).Set("evaluated_at", now).Where(Eq{"id": pls.ID})
-	_, err = r.executeSQL(updSql)
+	_, err = ownerRepo.executeSQL(updSql)
 	if err != nil {
 		log.Error(r.ctx, "Error updating smart playlist", "playlist", pls.Name, "id", pls.ID, err)
 		return false
